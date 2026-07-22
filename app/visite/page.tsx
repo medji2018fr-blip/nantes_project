@@ -2,7 +2,7 @@ import Viewer3D from '@/components/Viewer3D';
 import { promises as fs } from 'fs';
 import path from 'path';
 
-export default async function Home() {
+export default async function VisitePage() {
   const filePath = path.join(
     process.cwd(),
     'public',
@@ -14,7 +14,7 @@ export default async function Home() {
   const stations = JSON.parse(fileContents);
 
   return (
-    <main className="w-full h-screen">
+    <main>
       <Viewer3D stations={stations} />
     </main>
   );
