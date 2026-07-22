@@ -87,7 +87,7 @@ function PanoramaSphere({
   );
 }
 
-// 2D Minimap overlay component with zoom, pan, and hover tooltips for dense clusters
+// 2D Minimap overlay component with zoom, pan, and guaranteed all-points visibility
 function Minimap({
   stations,
   currentId,
@@ -116,27 +116,35 @@ function Minimap({
     return [minX, maxX, minY, maxY];
   }, [stations]);
 
-  const mapWidth = 260;
-  const mapHeight = 210;
-  const padding = 28;
+  const mapWidth = 270;
+  const mapHeight = 220;
+  const padding = 30;
 
   const currentStation = stations.find((s) => s.id === currentId);
 
-  // Center on current station when zoomed in
-  const centerX = currentStation ? currentStation.position.x : (minX + maxX) / 2;
-  const centerY = currentStation ? currentStation.position.y : (minY + maxY) / 2;
+  // Global center of all points
+  const globalCenterX = (minX + maxX) / 2;
+  const globalCenterY = (minY + maxY) / 2;
+
+  // Aspect-ratio scaling to guarantee all points fit inside padding bounds when zoom = 1
+  const spanX = maxX - minX || 1;
+  const spanY = maxY - minY || 1;
+  const availW = mapWidth - 2 * padding;
+  const availH = mapHeight - 2 * padding;
+  const baseScale = Math.min(availW / spanX, availH / spanY);
+  const scale = baseScale * zoom;
+
+  // Pan interpolation: at zoom=1 center is fixed at global Center (shows ALL stations), at zoom>1 focus moves to currentStation
+  const targetX = currentStation && zoom > 1 ? currentStation.position.x : globalCenterX;
+  const targetY = currentStation && zoom > 1 ? currentStation.position.y : globalCenterY;
+  const panWeight = Math.min(1, Math.max(0, (zoom - 1) / 1.2));
+  const centerX = globalCenterX + (targetX - globalCenterX) * panWeight;
+  const centerY = globalCenterY + (targetY - globalCenterY) * panWeight;
 
   const getMapCoords = (x: number, y: number) => {
-    const rangeX = (maxX - minX) / zoom || 1;
-    const rangeY = (maxY - minY) / zoom || 1;
-
-    const normX = (x - (centerX - rangeX / 2)) / rangeX;
-    const normY = (y - (centerY - rangeY / 2)) / rangeY;
-
-    return {
-      cx: padding + normX * (mapWidth - 2 * padding),
-      cy: mapHeight - (padding + normY * (mapHeight - 2 * padding)),
-    };
+    const cx = mapWidth / 2 + (x - centerX) * scale;
+    const cy = mapHeight / 2 - (y - centerY) * scale; // Invert Y so North (+Y) is UP
+    return { cx, cy };
   };
 
   const currentCoords = currentStation
@@ -156,21 +164,28 @@ function Minimap({
   };
 
   return (
-    <div className="bg-slate-950/90 backdrop-blur-xl p-3.5 rounded-2xl border border-slate-800 shadow-2xl relative w-[285px]">
+    <div className="bg-slate-950/90 backdrop-blur-xl p-3.5 rounded-2xl border border-slate-800 shadow-2xl relative w-[295px]">
       <div className="text-[11px] font-bold tracking-wider text-slate-400 uppercase mb-2 flex justify-between items-center select-none">
         <span className="flex items-center gap-1.5">
-          <span className="w-2 h-2 rounded-full bg-sky-400"></span>
-          Plan des stations (2D)
+          <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+          Plan des {stations.length} stations
         </span>
         <div className="flex items-center gap-1">
           <button
-            onClick={() => setZoom((z) => Math.max(0.8, z - 0.4))}
+            onClick={() => setZoom(1)}
+            className="px-1.5 py-0.5 bg-slate-800 hover:bg-sky-600 text-slate-300 hover:text-white text-[10px] font-mono rounded transition cursor-pointer"
+            title="Afficher tout le plan (Réinitialiser zoom)"
+          >
+            Tout voir
+          </button>
+          <button
+            onClick={() => setZoom((z) => Math.max(0.8, z - 0.3))}
             className="w-5 h-5 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold rounded flex items-center justify-center transition cursor-pointer"
             title="Dézoomer"
           >
             -
           </button>
-          <span className="text-[10px] font-mono text-slate-400 px-1">{zoom.toFixed(1)}x</span>
+          <span className="text-[10px] font-mono text-slate-400 px-0.5">{zoom.toFixed(1)}x</span>
           <button
             onClick={() => setZoom((z) => Math.min(3.5, z + 0.4))}
             className="w-5 h-5 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold rounded flex items-center justify-center transition cursor-pointer"
