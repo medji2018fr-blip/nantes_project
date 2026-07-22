@@ -1,8 +1,8 @@
 'use client';
 
 import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
-import { Canvas, useFrame, useThree } from '@react-three/fiber';
-import { OrbitControls, useTexture, Html } from '@react-three/drei';
+import { Canvas, useFrame } from '@react-three/fiber';
+import { OrbitControls, useTexture } from '@react-three/drei';
 import * as THREE from 'three';
 
 interface Position {
@@ -11,44 +11,34 @@ interface Position {
   z: number;
 }
 
+interface Rotation {
+  w: number;
+  x: number;
+  y: number;
+  z: number;
+}
+
 interface Station {
   id: number;
   name: string;
+  infFile?: string;
+  sensorName?: string;
   panoramaUrl: string;
   position: Position;
+  rotation?: Rotation;
   yaw?: number;
   connections: number[];
 }
 
-// Camera controller driving OrbitControls.target directly
-// Also reports azimuthal angle back for the minimap compass
+// Camera controller maintaining camera direction across station navigations
 function CameraController({
-  lookAngle,
-  navToken,
   controlsRef,
   onAzimuthChange,
 }: {
-  lookAngle: number | null;
-  navToken: number;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   controlsRef: React.RefObject<any>;
   onAzimuthChange: (angle: number) => void;
 }) {
-  const { camera } = useThree();
-
-  useEffect(() => {
-    if (lookAngle !== null && controlsRef.current) {
-      const dir = new THREE.Vector3(
-        Math.sin(lookAngle),
-        0,
-        -Math.cos(lookAngle)
-      );
-      controlsRef.current.target.copy(camera.position).add(dir);
-      controlsRef.current.update();
-    }
-  }, [lookAngle, navToken, camera, controlsRef]);
-
-  // Read camera direction every frame and report azimuth angle
   useFrame(() => {
     if (controlsRef.current) {
       const azimuth = controlsRef.current.getAzimuthalAngle();
@@ -90,93 +80,14 @@ function PanoramaSphere({
   const texture = useTexture(url);
 
   return (
-    <mesh scale={[-1, 1, 1]} rotation={[0, yaw, 0]}>
+    <mesh scale={[1, 1, 1]} rotation={[0, yaw, 0]}>
       <sphereGeometry args={[500, 60, 40]} />
       <meshBasicMaterial map={texture} side={THREE.BackSide} />
     </mesh>
   );
 }
 
-function StreetViewHotspot({
-  targetStation,
-  currentStation,
-  onClick,
-}: {
-  targetStation: Station;
-  currentStation: Station;
-  onClick: () => void;
-}) {
-  const [hovered, setHovered] = useState(false);
-
-  // Exact relative 3D position vector in scanner coordinates
-  const dx = targetStation.position.x - currentStation.position.x;
-  const dy = targetStation.position.y - currentStation.position.y;
-  const dz = targetStation.position.z - currentStation.position.z;
-
-  const dist = Math.sqrt(dx * dx + dy * dy + dz * dz);
-  if (dist === 0) return null;
-
-  // Exact 3D coordinates in Three.js space (center of station)
-  const markerX = dx;
-  const markerY = dz;
-  const markerZ = -dy;
-
-  const handleClick = (e?: React.MouseEvent) => {
-    if (e) e.stopPropagation();
-    onClick();
-  };
-
-  return (
-    <group position={[markerX, markerY, markerZ]}>
-      {/* 3D Hotspot Sphere at Exact Station Center */}
-      <group
-        onClick={handleClick}
-        onPointerOver={(e) => {
-          e.stopPropagation();
-          setHovered(true);
-        }}
-        onPointerOut={() => setHovered(false)}
-      >
-        {/* Outer Glowing Sphere */}
-        <mesh>
-          <sphereGeometry args={[0.35, 32, 32]} />
-          <meshBasicMaterial
-            color={hovered ? '#38bdf8' : '#ffffff'}
-            transparent
-            opacity={hovered ? 0.9 : 0.65}
-            wireframe={hovered}
-          />
-        </mesh>
-
-        {/* Inner Solid Core */}
-        <mesh>
-          <sphereGeometry args={[0.2, 32, 32]} />
-          <meshBasicMaterial color={hovered ? '#0284c7' : '#0f172a'} />
-        </mesh>
-      </group>
-
-      {/* Floating HTML Label directly above the Station Center */}
-      <Html position={[0, 0.75, 0]} center distanceFactor={14}>
-        <button
-          onClick={handleClick}
-          onMouseEnter={() => setHovered(true)}
-          onMouseLeave={() => setHovered(false)}
-          className={`px-3 py-1.5 rounded-full text-xs font-bold backdrop-blur-md transition-all duration-200 flex items-center gap-2 border shadow-xl cursor-pointer whitespace-nowrap ${
-            hovered
-              ? 'bg-sky-500 text-white border-sky-300 scale-110 shadow-sky-500/40 ring-2 ring-sky-300'
-              : 'bg-slate-900/90 text-slate-100 border-slate-700 hover:bg-slate-800'
-          }`}
-        >
-          <span className="w-2 h-2 rounded-full bg-sky-400 animate-ping" />
-          <span>{targetStation.name}</span>
-          <span className="text-[10px] text-sky-300 font-mono">({dist.toFixed(1)}m)</span>
-        </button>
-      </Html>
-    </group>
-  );
-}
-
-// 2D Minimap overlay component with compass view cone
+// 2D Minimap overlay component with zoom, pan, and hover tooltips for dense clusters
 function Minimap({
   stations,
   currentId,
@@ -188,6 +99,9 @@ function Minimap({
   onSelectStation: (id: number) => void;
   cameraAzimuth: number;
 }) {
+  const [zoom, setZoom] = useState<number>(1);
+  const [hoveredStation, setHoveredStation] = useState<Station | null>(null);
+
   const [minX, maxX, minY, maxY] = useMemo(() => {
     let minX = Infinity,
       maxX = -Infinity,
@@ -202,28 +116,35 @@ function Minimap({
     return [minX, maxX, minY, maxY];
   }, [stations]);
 
-  const mapWidth = 220;
-  const mapHeight = 180;
-  const padding = 24;
+  const mapWidth = 260;
+  const mapHeight = 210;
+  const padding = 28;
+
+  const currentStation = stations.find((s) => s.id === currentId);
+
+  // Center on current station when zoomed in
+  const centerX = currentStation ? currentStation.position.x : (minX + maxX) / 2;
+  const centerY = currentStation ? currentStation.position.y : (minY + maxY) / 2;
 
   const getMapCoords = (x: number, y: number) => {
-    const normX = (x - minX) / (maxX - minX || 1);
-    const normY = (y - minY) / (maxY - minY || 1);
+    const rangeX = (maxX - minX) / zoom || 1;
+    const rangeY = (maxY - minY) / zoom || 1;
+
+    const normX = (x - (centerX - rangeX / 2)) / rangeX;
+    const normY = (y - (centerY - rangeY / 2)) / rangeY;
+
     return {
       cx: padding + normX * (mapWidth - 2 * padding),
       cy: mapHeight - (padding + normY * (mapHeight - 2 * padding)),
     };
   };
 
-  const currentStation = stations.find((s) => s.id === currentId);
-
-  // View cone geometry for minimap
   const currentCoords = currentStation
     ? getMapCoords(currentStation.position.x, currentStation.position.y)
-    : { cx: 0, cy: 0 };
-  const coneLength = 28;
-  const coneSpread = Math.PI / 5; // ~36° total FOV cone
-  // Camera azimuth is in Three.js coords; map it to 2D minimap (rotate -90° to align)
+    : { cx: mapWidth / 2, cy: mapHeight / 2 };
+
+  const coneLength = 32;
+  const coneSpread = Math.PI / 5;
   const mapAngle = -cameraAzimuth - Math.PI / 2;
   const coneLeft = {
     x: currentCoords.cx + Math.cos(mapAngle - coneSpread) * coneLength,
@@ -235,134 +156,300 @@ function Minimap({
   };
 
   return (
-    <div className="bg-slate-950/85 backdrop-blur-md p-3 rounded-2xl border border-slate-800 shadow-2xl">
-      <div className="text-[11px] font-bold tracking-wider text-slate-400 uppercase mb-2 flex justify-between items-center">
-        <span>Plan des stations</span>
-        <span className="text-sky-400 font-mono text-[10px]">2D MAP</span>
+    <div className="bg-slate-950/90 backdrop-blur-xl p-3.5 rounded-2xl border border-slate-800 shadow-2xl relative w-[285px]">
+      <div className="text-[11px] font-bold tracking-wider text-slate-400 uppercase mb-2 flex justify-between items-center select-none">
+        <span className="flex items-center gap-1.5">
+          <span className="w-2 h-2 rounded-full bg-sky-400"></span>
+          Plan des stations (2D)
+        </span>
+        <div className="flex items-center gap-1">
+          <button
+            onClick={() => setZoom((z) => Math.max(0.8, z - 0.4))}
+            className="w-5 h-5 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold rounded flex items-center justify-center transition cursor-pointer"
+            title="Dézoomer"
+          >
+            -
+          </button>
+          <span className="text-[10px] font-mono text-slate-400 px-1">{zoom.toFixed(1)}x</span>
+          <button
+            onClick={() => setZoom((z) => Math.min(3.5, z + 0.4))}
+            className="w-5 h-5 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold rounded flex items-center justify-center transition cursor-pointer"
+            title="Zoomer"
+          >
+            +
+          </button>
+        </div>
       </div>
-      <svg width={mapWidth} height={mapHeight} className="overflow-visible">
-        {/* View Cone showing camera look direction */}
-        {currentStation && (
-          <polygon
-            points={`${currentCoords.cx},${currentCoords.cy} ${coneLeft.x},${coneLeft.y} ${coneRight.x},${coneRight.y}`}
-            fill="#38bdf8"
-            opacity={0.15}
-            stroke="#38bdf8"
-            strokeWidth={0.5}
-            strokeOpacity={0.4}
-          />
-        )}
 
-        {/* Draw connections */}
-        {stations.map((s) => {
-          const from = getMapCoords(s.position.x, s.position.y);
-          return s.connections.map((targetId) => {
-            if (targetId < s.id) return null; // Avoid duplicate lines
-            const target = stations.find((t) => t.id === targetId);
-            if (!target) return null;
-            const to = getMapCoords(target.position.x, target.position.y);
-            const isCurrentConn =
-              s.id === currentId || targetId === currentId;
+      <div className="relative overflow-hidden rounded-xl bg-slate-900/80 border border-slate-800/80">
+        <svg width={mapWidth} height={mapHeight} className="overflow-visible">
+          {/* View Cone */}
+          {currentStation && (
+            <polygon
+              points={`${currentCoords.cx},${currentCoords.cy} ${coneLeft.x},${coneLeft.y} ${coneRight.x},${coneRight.y}`}
+              fill="#38bdf8"
+              opacity={0.18}
+              stroke="#38bdf8"
+              strokeWidth={0.75}
+              strokeOpacity={0.5}
+            />
+          )}
+
+          {/* Connections */}
+          {stations.map((s) => {
+            const from = getMapCoords(s.position.x, s.position.y);
+            return s.connections.map((targetId) => {
+              if (targetId < s.id) return null;
+              const target = stations.find((t) => t.id === targetId);
+              if (!target) return null;
+              const to = getMapCoords(target.position.x, target.position.y);
+              const isCurrentConn = s.id === currentId || targetId === currentId;
+
+              return (
+                <line
+                  key={`${s.id}-${targetId}`}
+                  x1={from.cx}
+                  y1={from.cy}
+                  x2={to.cx}
+                  y2={to.cy}
+                  stroke={isCurrentConn ? '#38bdf8' : '#334155'}
+                  strokeWidth={isCurrentConn ? 2 : 1}
+                  strokeDasharray={isCurrentConn ? 'none' : '3,3'}
+                  opacity={isCurrentConn ? 0.95 : 0.4}
+                />
+              );
+            });
+          })}
+
+          {/* Station Dots */}
+          {stations.map((s) => {
+            const { cx, cy } = getMapCoords(s.position.x, s.position.y);
+            const isSelected = s.id === currentId;
+            const isConnected = currentStation?.connections.includes(s.id);
+            const isHovered = hoveredStation?.id === s.id;
+
             return (
-              <line
-                key={`${s.id}-${targetId}`}
-                x1={from.cx}
-                y1={from.cy}
-                x2={to.cx}
-                y2={to.cy}
-                stroke={isCurrentConn ? '#38bdf8' : '#334155'}
-                strokeWidth={isCurrentConn ? 2 : 1}
-                strokeDasharray={isCurrentConn ? 'none' : '2,2'}
-                opacity={isCurrentConn ? 0.9 : 0.5}
-              />
-            );
-          });
-        })}
-
-        {/* Draw Station Dots */}
-        {stations.map((s) => {
-          const { cx, cy } = getMapCoords(s.position.x, s.position.y);
-          const isSelected = s.id === currentId;
-          const isConnected = currentStation?.connections.includes(s.id);
-
-          return (
-            <g
-              key={s.id}
-              onClick={() => onSelectStation(s.id)}
-              style={{ cursor: 'pointer' }}
-            >
-              {/* Invisible large hit area for easy clicking */}
-              <circle
-                cx={cx}
-                cy={cy}
-                r="14"
-                fill="transparent"
-              />
-              {isSelected && (
+              <g
+                key={s.id}
+                onClick={() => onSelectStation(s.id)}
+                onMouseEnter={() => setHoveredStation(s)}
+                onMouseLeave={() => setHoveredStation(null)}
+                className="cursor-pointer group"
+              >
+                <circle cx={cx} cy={cy} r="12" fill="transparent" />
+                {isSelected && (
+                  <circle
+                    cx={cx}
+                    cy={cy}
+                    r="9"
+                    className="fill-sky-500/40 animate-ping"
+                  />
+                )}
                 <circle
                   cx={cx}
                   cy={cy}
-                  r="10"
-                  className="fill-sky-500/40 animate-ping"
+                  r={isSelected ? 6.5 : isHovered ? 6 : isConnected ? 5 : 4}
+                  fill={isSelected ? '#38bdf8' : isHovered ? '#f59e0b' : isConnected ? '#0ea5e9' : '#64748b'}
+                  stroke={isSelected || isHovered ? '#ffffff' : 'transparent'}
+                  strokeWidth={isSelected || isHovered ? 1.5 : 0}
+                  className="transition-all duration-150"
                 />
-              )}
-              <circle
-                cx={cx}
-                cy={cy}
-                r={isSelected ? 6 : isConnected ? 5 : 4}
-                fill={isSelected ? '#38bdf8' : isConnected ? '#38bdf8' : '#64748b'}
-                stroke={isSelected ? '#fff' : 'transparent'}
-                strokeWidth={isSelected ? 1.5 : 0}
-              >
-                <title>
-                  {s.name} — Cliquer pour naviguer
-                </title>
-              </circle>
-              <text
-                x={cx}
-                y={cy - 9}
-                textAnchor="middle"
-                fontSize="8"
-                fill={isSelected ? '#38bdf8' : '#94a3b8'}
-                fontWeight={isSelected ? 'bold' : 'normal'}
-                className="pointer-events-none select-none"
-              >
-                {s.id}
-              </text>
-            </g>
-          );
-        })}
+                <text
+                  x={cx}
+                  y={cy - 9}
+                  textAnchor="middle"
+                  fontSize="8"
+                  fill={isSelected ? '#38bdf8' : isHovered ? '#fbbf24' : '#94a3b8'}
+                  fontWeight={isSelected || isHovered ? 'bold' : 'normal'}
+                  className="pointer-events-none select-none font-mono"
+                >
+                  {s.id}
+                </text>
+              </g>
+            );
+          })}
 
-        {/* Compass Rose (N/S/E/W labels) */}
-        <text x={mapWidth / 2} y={8} textAnchor="middle" fontSize="9" fill="#ef4444" fontWeight="bold" className="select-none">N</text>
-        <text x={mapWidth / 2} y={mapHeight - 2} textAnchor="middle" fontSize="8" fill="#64748b" className="select-none">S</text>
-        <text x={5} y={mapHeight / 2 + 3} textAnchor="start" fontSize="8" fill="#64748b" className="select-none">O</text>
-        <text x={mapWidth - 5} y={mapHeight / 2 + 3} textAnchor="end" fontSize="8" fill="#64748b" className="select-none">E</text>
-      </svg>
+          {/* Compass labels */}
+          <text x={mapWidth / 2} y={10} textAnchor="middle" fontSize="9" fill="#ef4444" fontWeight="bold" className="select-none">N</text>
+          <text x={mapWidth / 2} y={mapHeight - 4} textAnchor="middle" fontSize="8" fill="#64748b" className="select-none">S</text>
+          <text x={6} y={mapHeight / 2 + 3} textAnchor="start" fontSize="8" fill="#64748b" className="select-none">O</text>
+          <text x={mapWidth - 6} y={mapHeight / 2 + 3} textAnchor="end" fontSize="8" fill="#64748b" className="select-none">E</text>
+        </svg>
+      </div>
+
+      {/* Hover Info Tooltip Banner */}
+      {hoveredStation && (
+        <div className="mt-2 p-2 bg-slate-900 rounded-lg border border-amber-500/30 text-[10px] text-slate-300 font-mono flex flex-col gap-0.5 animate-fadeIn">
+          <div className="flex justify-between items-center text-amber-400 font-bold">
+            <span>{hoveredStation.name}</span>
+            <span>ID: {hoveredStation.id}</span>
+          </div>
+          <div className="text-slate-400">
+            X: {hoveredStation.position.x.toFixed(3)}m | Y: {hoveredStation.position.y.toFixed(3)}m | Z: {hoveredStation.position.z.toFixed(3)}m
+          </div>
+        </div>
+      )}
     </div>
   );
 }
 
-// Standalone compass widget for main 3D view
+// Standalone compass widget
 function CompassWidget({ azimuth }: { azimuth: number }) {
-  // Rotate the compass needle by the negative azimuth so N stays pointing north
   const rotation = -azimuth * (180 / Math.PI);
 
   return (
-    <div className="bg-slate-900/85 backdrop-blur-md rounded-full w-16 h-16 border border-slate-700 shadow-2xl flex items-center justify-center relative">
-      <svg width="52" height="52" viewBox="-26 -26 52 52" style={{ transform: `rotate(${rotation}deg)`, transition: 'transform 0.1s ease-out' }}>
-        {/* North needle (red) */}
-        <polygon points="0,-20 -4,-4 4,-4" fill="#ef4444" />
-        {/* South needle (white/gray) */}
-        <polygon points="0,20 -4,4 4,4" fill="#94a3b8" />
-        {/* Center circle */}
-        <circle cx="0" cy="0" r="3" fill="#1e293b" stroke="#64748b" strokeWidth="1" />
+    <div className="bg-slate-900/85 backdrop-blur-md rounded-full w-14 h-14 border border-slate-700 shadow-2xl flex items-center justify-center relative">
+      <svg width="44" height="44" viewBox="-22 -22 44 44" style={{ transform: `rotate(${rotation}deg)`, transition: 'transform 0.1s ease-out' }}>
+        <polygon points="0,-17 -3.5,-3 3.5,-3" fill="#ef4444" />
+        <polygon points="0,17 -3.5,3 3.5,3" fill="#94a3b8" />
+        <circle cx="0" cy="0" r="2.5" fill="#1e293b" stroke="#64748b" strokeWidth="1" />
       </svg>
-      {/* Cardinal labels (fixed, don't rotate) */}
-      <span className="absolute top-0.5 text-[8px] font-bold text-red-400 select-none">N</span>
-      <span className="absolute bottom-0.5 text-[8px] font-medium text-slate-500 select-none">S</span>
-      <span className="absolute left-1.5 text-[8px] font-medium text-slate-500 select-none">O</span>
-      <span className="absolute right-1.5 text-[8px] font-medium text-slate-500 select-none">E</span>
+      <span className="absolute top-0.5 text-[7px] font-bold text-red-400 select-none">N</span>
+      <span className="absolute bottom-0.5 text-[7px] font-medium text-slate-500 select-none">S</span>
+    </div>
+  );
+}
+
+// Station Data Inspector Table Modal
+function StationInspectorModal({
+  stations,
+  currentId,
+  onSelectStation,
+  onClose,
+}: {
+  stations: Station[];
+  currentId: number;
+  onSelectStation: (id: number) => void;
+  onClose: () => void;
+}) {
+  const [search, setSearch] = useState('');
+
+  const filteredStations = useMemo(() => {
+    return stations.filter(
+      (s) =>
+        s.name.toLowerCase().includes(search.toLowerCase()) ||
+        s.id.toString().includes(search) ||
+        (s.sensorName && s.sensorName.toLowerCase().includes(search.toLowerCase()))
+    );
+  }, [stations, search]);
+
+  return (
+    <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-4">
+      <div className="bg-slate-900 border border-slate-800 rounded-3xl w-full max-w-4xl max-h-[85vh] flex flex-col shadow-2xl overflow-hidden">
+        {/* Modal Header */}
+        <div className="p-5 border-b border-slate-800 flex justify-between items-center bg-slate-950/50">
+          <div>
+            <h2 className="text-lg font-bold text-white flex items-center gap-2">
+              <span className="w-3 h-3 rounded-full bg-sky-400"></span>
+              Coordonnées des Panoramas & Stations ({stations.length} Points)
+            </h2>
+            <p className="text-xs text-slate-400 mt-0.5">
+              Extrait automatiquement depuis les fichiers de configuration .inf de chaque panorama
+            </p>
+          </div>
+          <button
+            onClick={onClose}
+            className="w-8 h-8 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-300 flex items-center justify-center transition cursor-pointer text-sm font-bold"
+          >
+            ✕
+          </button>
+        </div>
+
+        {/* Search Bar & Stats */}
+        <div className="p-4 bg-slate-900/60 border-b border-slate-800/80 flex flex-col sm:flex-row gap-3 justify-between items-center">
+          <input
+            type="text"
+            placeholder="Rechercher par ID, Nom ou Identifiant..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="w-full sm:w-80 bg-slate-950 text-white text-xs px-3.5 py-2 rounded-xl border border-slate-800 focus:outline-none focus:border-sky-500 font-mono"
+          />
+          <div className="text-xs text-slate-400 flex items-center gap-4">
+            <span>Affichés: <strong className="text-sky-400 font-mono">{filteredStations.length}</strong> / {stations.length}</span>
+            <span className="text-slate-600">|</span>
+            <span className="text-emerald-400 font-mono font-semibold">100% Coordonnées Valides</span>
+          </div>
+        </div>
+
+        {/* Data Table */}
+        <div className="flex-1 overflow-y-auto p-4">
+          <table className="w-full text-left text-xs font-mono">
+            <thead>
+              <tr className="border-b border-slate-800 text-slate-400 uppercase text-[10px] tracking-wider">
+                <th className="pb-3 px-3">ID</th>
+                <th className="pb-3 px-3">Station</th>
+                <th className="pb-3 px-3">Fichier .inf</th>
+                <th className="pb-3 px-3 text-right">X (m)</th>
+                <th className="pb-3 px-3 text-right">Y (m)</th>
+                <th className="pb-3 px-3 text-right">Z (m)</th>
+                <th className="pb-3 px-3 text-center">Connexions</th>
+                <th className="pb-3 px-3 text-center">Action</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-800/60 text-slate-300">
+              {filteredStations.map((s) => {
+                const isSelected = s.id === currentId;
+                return (
+                  <tr
+                    key={s.id}
+                    className={`hover:bg-slate-800/50 transition ${
+                      isSelected ? 'bg-sky-500/10 text-white' : ''
+                    }`}
+                  >
+                    <td className="py-3 px-3 font-bold text-sky-400">#{s.id}</td>
+                    <td className="py-3 px-3 font-sans font-semibold text-slate-200">
+                      {s.name}
+                    </td>
+                    <td className="py-3 px-3 text-slate-400 text-[11px]">
+                      {s.infFile || `image2d-${s.id}.inf`}
+                    </td>
+                    <td className="py-3 px-3 text-right font-mono text-emerald-400">
+                      {s.position.x.toFixed(4)}
+                    </td>
+                    <td className="py-3 px-3 text-right font-mono text-emerald-400">
+                      {s.position.y.toFixed(4)}
+                    </td>
+                    <td className="py-3 px-3 text-right font-mono text-emerald-400">
+                      {s.position.z.toFixed(4)}
+                    </td>
+                    <td className="py-3 px-3 text-center">
+                      <span className="px-2 py-0.5 rounded-md bg-slate-800 text-slate-300 text-[10px]">
+                        {s.connections.length} proches
+                      </span>
+                    </td>
+                    <td className="py-3 px-3 text-center">
+                      <button
+                        onClick={() => {
+                          onSelectStation(s.id);
+                          onClose();
+                        }}
+                        className={`px-3 py-1 rounded-lg text-xs font-sans font-semibold transition cursor-pointer ${
+                          isSelected
+                            ? 'bg-sky-500 text-white'
+                            : 'bg-slate-800 text-slate-200 hover:bg-sky-600 hover:text-white'
+                        }`}
+                      >
+                        {isSelected ? 'Actif' : 'Ouvrir'}
+                      </button>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+
+        {/* Modal Footer */}
+        <div className="p-4 bg-slate-950/60 border-t border-slate-800 flex justify-between items-center text-xs text-slate-400">
+          <span>Format: Système de coordonnée Leica / Cyclone Register 360</span>
+          <button
+            onClick={onClose}
+            className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-white font-sans font-semibold rounded-xl transition cursor-pointer"
+          >
+            Fermer
+          </button>
+        </div>
+      </div>
     </div>
   );
 }
@@ -370,22 +457,20 @@ function CompassWidget({ azimuth }: { azimuth: number }) {
 export default function Viewer3D({ stations }: { stations: Station[] }) {
   const [currentId, setCurrentId] = useState(1);
   const [showMinimap, setShowMinimap] = useState(true);
+  const [showInspector, setShowInspector] = useState(false);
   const [fadeIn, setFadeIn] = useState(false);
-  const [lookAngle, setLookAngle] = useState<number | null>(null);
-  const [navToken, setNavToken] = useState(0);
   const [isNavigating, setIsNavigating] = useState(false);
   const [cameraAzimuth, setCameraAzimuth] = useState(0);
+  const [globalYawOffset, setGlobalYawOffset] = useState<number>(0);
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const controlsRef = useRef<any>(null);
 
-  // Throttle azimuth updates to avoid excessive re-renders
   const azimuthRef = useRef(0);
   const handleAzimuthChange = useCallback((angle: number) => {
     azimuthRef.current = angle;
   }, []);
 
-  // Sync azimuth to React state at 10fps for minimap/compass rendering
   useEffect(() => {
     const interval = setInterval(() => {
       setCameraAzimuth(azimuthRef.current);
@@ -398,7 +483,6 @@ export default function Viewer3D({ stations }: { stations: Station[] }) {
     currentStation.connections.includes(s.id)
   );
 
-  // Collect URLs of all connected stations for background preloading
   const preloadUrls = useMemo(() => {
     return connectedStations.map((s) => s.panoramaUrl);
   }, [connectedStations]);
@@ -406,22 +490,10 @@ export default function Viewer3D({ stations }: { stations: Station[] }) {
   const navigateToStation = (targetId: number) => {
     if (targetId === currentId || isNavigating) return;
 
-    const targetStation = stations.find((s) => s.id === targetId);
-    if (targetStation) {
-      const dx = targetStation.position.x - currentStation.position.x;
-      const dy = targetStation.position.y - currentStation.position.y;
-      const travelAngle = Math.atan2(dx, dy) + (currentStation.yaw || 0);
-      setLookAngle(travelAngle);
-      setNavToken((t) => t + 1);
-    }
-
     setIsNavigating(true);
-
-    // Fade out briefly, switch station, then fade in
     setFadeIn(true);
     setTimeout(() => {
       setCurrentId(targetId);
-      // Keep fade overlay for a moment so the new texture settles
       setTimeout(() => {
         setFadeIn(false);
         setIsNavigating(false);
@@ -454,8 +526,6 @@ export default function Viewer3D({ stations }: { stations: Station[] }) {
       {/* 3D Canvas */}
       <Canvas camera={{ position: [0, 0, 0.1], fov: 75 }}>
         <CameraController
-          lookAngle={lookAngle}
-          navToken={navToken}
           controlsRef={controlsRef}
           onAzimuthChange={handleAzimuthChange}
         />
@@ -463,38 +533,65 @@ export default function Viewer3D({ stations }: { stations: Station[] }) {
         <React.Suspense fallback={null}>
           <PanoramaSphere
             url={currentStation.panoramaUrl}
-            yaw={currentStation.yaw || 0}
+            yaw={(currentStation.yaw || 0) + globalYawOffset}
           />
         </React.Suspense>
-
-        {connectedStations.map((target) => (
-          <StreetViewHotspot
-            key={target.id}
-            targetStation={target}
-            currentStation={currentStation}
-            onClick={() => navigateToStation(target.id)}
-          />
-        ))}
       </Canvas>
 
       {/* Top Bar Info */}
-      <div className="absolute top-4 left-4 right-4 flex justify-between items-center pointer-events-none z-10">
+      <div className="absolute top-4 left-4 right-4 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 pointer-events-none z-10">
         <div className="bg-slate-900/85 backdrop-blur-md px-4 py-2.5 rounded-2xl border border-slate-800 text-white flex items-center gap-3 shadow-xl pointer-events-auto">
           <div className="w-3 h-3 rounded-full bg-emerald-400 animate-pulse" />
           <div>
-            <h1 className="font-bold text-sm tracking-wide">{currentStation.name}</h1>
+            <h1 className="font-bold text-sm tracking-wide flex items-center gap-2">
+              {currentStation.name}
+              <span className="text-[10px] font-mono font-normal text-sky-400 bg-sky-950/60 px-2 py-0.5 rounded-full border border-sky-800">
+                X: {currentStation.position.x.toFixed(2)}m | Y: {currentStation.position.y.toFixed(2)}m
+              </span>
+            </h1>
             <p className="text-[11px] text-slate-400">
-              Station {currentStation.id} / {stations.length} • {connectedStations.length} connexions
+              Station {currentStation.id} / {stations.length} • {connectedStations.length} connexions proches
             </p>
           </div>
         </div>
 
         <div className="flex items-center gap-2 pointer-events-auto">
+          {/* Open Station Points Table Button */}
+          <button
+            onClick={() => setShowInspector(true)}
+            className="bg-sky-600 hover:bg-sky-500 text-white px-3.5 py-2 rounded-2xl text-xs font-semibold shadow-xl transition cursor-pointer flex items-center gap-1.5"
+          >
+            <span>📊 Tableau des points</span>
+          </button>
+
+          {/* Quick Rotation Alignment Control */}
+          <div className="bg-slate-900/85 backdrop-blur-md px-3 py-1.5 rounded-2xl border border-slate-800 text-slate-200 text-xs font-semibold hidden md:flex items-center gap-2 shadow-xl">
+            <span className="text-[10px] text-slate-400 uppercase">Rotation:</span>
+            {[
+              { label: '0°', val: 0 },
+              { label: '90°', val: Math.PI / 2 },
+              { label: '180°', val: Math.PI },
+              { label: '270°', val: (3 * Math.PI) / 2 },
+            ].map((opt) => (
+              <button
+                key={opt.label}
+                onClick={() => setGlobalYawOffset(opt.val)}
+                className={`px-2 py-0.5 rounded-lg text-[11px] font-mono transition cursor-pointer ${
+                  Math.abs(globalYawOffset - opt.val) < 0.01
+                    ? 'bg-sky-500 text-white font-bold'
+                    : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
+                }`}
+              >
+                {opt.label}
+              </button>
+            ))}
+          </div>
+
           <button
             onClick={() => setShowMinimap(!showMinimap)}
             className="bg-slate-900/85 backdrop-blur-md px-3.5 py-2 rounded-2xl border border-slate-800 text-slate-200 hover:text-white hover:bg-slate-800 text-xs font-semibold transition shadow-xl cursor-pointer"
           >
-            {showMinimap ? 'Masquer la carte' : 'Afficher la carte'}
+            {showMinimap ? 'Masquer carte' : 'Carte 2D'}
           </button>
         </div>
       </div>
@@ -518,7 +615,7 @@ export default function Viewer3D({ stations }: { stations: Station[] }) {
 
       {/* Navigation Help overlay hint */}
       <div className="absolute bottom-20 left-1/2 -translate-x-1/2 bg-slate-900/75 backdrop-blur-md px-4 py-1.5 rounded-full border border-slate-800/80 text-slate-200 text-xs shadow-lg pointer-events-none hidden sm:block">
-        Glissez pour orienter la vue • Cliquez sur les points 3D pour naviguer
+        Glissez pour orienter la vue • Utilisez la carte ou le tableau pour naviguer
       </div>
 
       {/* Bottom Navigation Toolbar */}
@@ -539,7 +636,7 @@ export default function Viewer3D({ stations }: { stations: Station[] }) {
         >
           {stations.map((s) => (
             <option key={s.id} value={s.id}>
-              {s.name} ({s.connections.length} connexions)
+              {s.name} (X: {s.position.x.toFixed(1)}m, Y: {s.position.y.toFixed(1)}m)
             </option>
           ))}
         </select>
@@ -553,6 +650,17 @@ export default function Viewer3D({ stations }: { stations: Station[] }) {
           ›
         </button>
       </div>
+
+      {/* Data Inspector Modal */}
+      {showInspector && (
+        <StationInspectorModal
+          stations={stations}
+          currentId={currentId}
+          onSelectStation={(id) => navigateToStation(id)}
+          onClose={() => setShowInspector(false)}
+        />
+      )}
     </div>
   );
 }
+

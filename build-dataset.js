@@ -20,16 +20,29 @@ for (let i = 1; i <= TOTAL_STATIONS; i++) {
       const xMatch = content.match(/pose\.translation\.x\s*=\s*([-\d.eE]+)/);
       const yMatch = content.match(/pose\.translation\.y\s*=\s*([-\d.eE]+)/);
       const zMatch = content.match(/pose\.translation\.z\s*=\s*([-\d.eE]+)/);
+      const rwMatch = content.match(/pose\.rotation\.w\s*=\s*([-\d.eE]+)/);
+      const rxMatch = content.match(/pose\.rotation\.x\s*=\s*([-\d.eE]+)/);
+      const ryMatch = content.match(/pose\.rotation\.y\s*=\s*([-\d.eE]+)/);
+      const rzMatch = content.match(/pose\.rotation\.z\s*=\s*([-\d.eE]+)/);
+      const nameMatch = content.match(/name\s*=\s*(.+)/);
 
       if (xMatch && yMatch && zMatch) {
         rawStations.push({
           id: i,
           name: `Station ${stationStr}`,
+          infFile: infFile,
+          sensorName: nameMatch ? nameMatch[1].trim() : `Station_${stationStr}`,
           panoramaUrl: `/data/PanoramasExterieur/Station_${stationStr}/pano_station_${stationStr}.jpg`,
           position: {
             x: parseFloat(xMatch[1]),
             y: parseFloat(yMatch[1]),
             z: parseFloat(zMatch[1])
+          },
+          rotation: {
+            w: rwMatch ? parseFloat(rwMatch[1]) : 1,
+            x: rxMatch ? parseFloat(rxMatch[1]) : 0,
+            y: ryMatch ? parseFloat(ryMatch[1]) : 0,
+            z: rzMatch ? parseFloat(rzMatch[1]) : 0,
           },
           yaw: 0
         });
