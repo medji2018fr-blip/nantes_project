@@ -30,18 +30,18 @@ for (let i = 1; i <= TOTAL_STATIONS; i++) {
             x: parseFloat(xMatch[1]),
             y: parseFloat(yMatch[1]),
             z: parseFloat(zMatch[1])
-          }
+          },
+          yaw: 0
         });
       }
     }
   }
 }
 
-// Calculate connections based on proximity and sequential neighbor fallback
-const MAX_DISTANCE = 16.0; // meters threshold for direct visual line-of-sight
+// Calculate neighbor connections (within ~14 meters or top 3 nearest)
+const MAX_NEIGHBOR_DISTANCE = 14.0;
 
 const stations = rawStations.map(station => {
-  // Find distances to all other stations
   const distances = rawStations
     .filter(other => other.id !== station.id)
     .map(other => {
@@ -53,30 +53,18 @@ const stations = rawStations.map(station => {
     })
     .sort((a, b) => a.dist - b.dist);
 
-  // Connect stations within MAX_DISTANCE meters, or at least top 3 nearest
-  const nearby = distances.filter(d => d.dist <= MAX_DISTANCE);
-  const connectionsList = nearby.length >= 2 ? nearby : distances.slice(0, 3);
-  
-  // Ensure sequential predecessor and successor are included if reasonable (< 40m)
-  const prevId = station.id - 1;
-  const nextId = station.id + 1;
-  const connIds = new Set(connectionsList.map(c => c.id));
-  
-  if (prevId >= 1) {
-    const prevDist = distances.find(d => d.id === prevId);
-    if (prevDist && prevDist.dist < 40) connIds.add(prevId);
+  let nearby = distances.filter(d => d.dist <= MAX_NEIGHBOR_DISTANCE);
+  if (nearby.length < 2) {
+    nearby = distances.slice(0, 2);
   }
-  if (nextId <= TOTAL_STATIONS) {
-    const nextDist = distances.find(d => d.id === nextId);
-    if (nextDist && nextDist.dist < 40) connIds.add(nextId);
-  }
+  nearby = nearby.slice(0, 4);
 
   return {
     ...station,
-    connections: Array.from(connIds).sort((a, b) => a - b)
+    connections: nearby.map(c => c.id).sort((a, b) => a - b)
   };
 });
 
 const outputPath = path.join(BASE_DIR, 'stations.json');
 fs.writeFileSync(outputPath, JSON.stringify(stations, null, 2));
-console.log(`✅ Fichier généré avec succès avec graphe de proximité : ${outputPath}`);
+console.log(`✅ Dataset généré avec succès avec yaw = 0 et connexions propres : ${outputPath}`);
