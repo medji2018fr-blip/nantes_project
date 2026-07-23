@@ -687,55 +687,53 @@ function Minimap({
         </svg>
       </div>
 
-      {/* Left / Right Position Navigation Controls when Cuve has > 1 point */}
-      {activeZone.stations.length > 1 && (
-        <div className="mt-3 pt-2.5 border-t border-slate-800/80 flex items-center justify-between gap-3 text-xs font-mono select-none">
-          <button
-            onClick={() => {
-              const currentIdx = activeZone.stations.findIndex((s) => s.id === currentId);
-              if (currentIdx > 0) {
-                onSelectStation(activeZone.stations[currentIdx - 1].id, activeZone.id);
-              }
-            }}
-            disabled={activeZone.stations.findIndex((s) => s.id === currentId) <= 0}
-            className={`px-4 py-2 rounded-xl font-bold transition flex items-center gap-1.5 ${
-              activeZone.stations.findIndex((s) => s.id === currentId) > 0
-                ? 'bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 shadow-md cursor-pointer'
-                : 'bg-slate-900 text-slate-600 border border-slate-800/50 cursor-not-allowed opacity-40'
-            }`}
-          >
-            <span>◄</span>
-            <span>Précédent</span>
-          </button>
+      {/* Left / Right Position Navigation Controls for Cuves (Always rendered to maintain constant card size) */}
+      <div className="mt-3 pt-2.5 border-t border-slate-800/80 flex items-center justify-between gap-3 text-xs font-mono select-none">
+        <button
+          onClick={() => {
+            const currentIdx = activeZone.stations.findIndex((s) => s.id === currentId);
+            if (currentIdx > 0) {
+              onSelectStation(activeZone.stations[currentIdx - 1].id, activeZone.id);
+            }
+          }}
+          disabled={activeZone.stations.findIndex((s) => s.id === currentId) <= 0}
+          className={`px-4 py-2 rounded-xl font-bold transition flex items-center gap-1.5 ${
+            activeZone.stations.findIndex((s) => s.id === currentId) > 0
+              ? 'bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 shadow-md cursor-pointer'
+              : 'bg-slate-900 text-slate-600 border border-slate-800/50 cursor-not-allowed opacity-40'
+          }`}
+        >
+          <span>◄</span>
+          <span>Précédent</span>
+        </button>
 
-          <div className="flex flex-col items-center">
-            <span className="text-xs font-bold text-slate-200">
-              Point {activeZone.stations.findIndex((s) => s.id === currentId) + 1} / {activeZone.stations.length}
-            </span>
-            <span className="text-[10px] text-slate-400 font-sans">
-              Station {currentId}
-            </span>
-          </div>
-
-          <button
-            onClick={() => {
-              const currentIdx = activeZone.stations.findIndex((s) => s.id === currentId);
-              if (currentIdx < activeZone.stations.length - 1) {
-                onSelectStation(activeZone.stations[currentIdx + 1].id, activeZone.id);
-              }
-            }}
-            disabled={activeZone.stations.findIndex((s) => s.id === currentId) >= activeZone.stations.length - 1}
-            className={`px-4 py-2 rounded-xl font-bold transition flex items-center gap-1.5 ${
-              activeZone.stations.findIndex((s) => s.id === currentId) < activeZone.stations.length - 1
-                ? 'bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 shadow-md cursor-pointer'
-                : 'bg-slate-900 text-slate-600 border border-slate-800/50 cursor-not-allowed opacity-40'
-            }`}
-          >
-            <span>Suivant</span>
-            <span>►</span>
-          </button>
+        <div className="flex flex-col items-center">
+          <span className="text-xs font-bold text-slate-200">
+            Point {Math.max(1, activeZone.stations.findIndex((s) => s.id === currentId) + 1)} / {activeZone.stations.length || 1}
+          </span>
+          <span className="text-[10px] text-slate-400 font-sans">
+            Station {currentId}
+          </span>
         </div>
-      )}
+
+        <button
+          onClick={() => {
+            const currentIdx = activeZone.stations.findIndex((s) => s.id === currentId);
+            if (currentIdx < activeZone.stations.length - 1) {
+              onSelectStation(activeZone.stations[currentIdx + 1].id, activeZone.id);
+            }
+          }}
+          disabled={activeZone.stations.findIndex((s) => s.id === currentId) >= activeZone.stations.length - 1}
+          className={`px-4 py-2 rounded-xl font-bold transition flex items-center gap-1.5 ${
+            activeZone.stations.findIndex((s) => s.id === currentId) < activeZone.stations.length - 1
+              ? 'bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 shadow-md cursor-pointer'
+              : 'bg-slate-900 text-slate-600 border border-slate-800/50 cursor-not-allowed opacity-40'
+          }`}
+        >
+          <span>Suivant</span>
+          <span>►</span>
+        </button>
+      </div>
     </div>
   );
 }
