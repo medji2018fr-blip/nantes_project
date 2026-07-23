@@ -1,0 +1,17 @@
+guid = 0000000000000001
+name = 232160f7-7536-4356-ab91-25cbcf6293be
+sensorModel = CycloneRegister360
+pose.translation.x = 14.6547
+pose.translation.y = -15.0687
+pose.translation.z = 0.0023387
+pose.rotation.w = 0.309546
+pose.rotation.x = 0.309546
+pose.rotation.y = 0.635753
+pose.rotation.z = 0.635753
+pinholeRepresentation.imageHeight = 2048
+pinholeRepresentation.imageWidth = 2048
+pinholeRepresentation.focalLength = 0.006141
+pinholeRepresentation.pixelWidth = 6e-06
+pinholeRepresentation.pixelHeight = 6e-06
+pinholeRepresentation.principalPointX = 1023.5
+pinholeRepresentation.principalPointY = 1023.5

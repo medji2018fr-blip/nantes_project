@@ -1,0 +1,20 @@
+[
+  {
+    "id": 1,
+    "name": "Station 01",
+    "panoramaUrl": "/data/Cuve_6/Station_01/pano_station_01.jpg",
+    "position": {
+      "x": 20.0,
+      "y": 5.0,
+      "z": 0.0
+    },
+    "rotation": {
+      "w": 1,
+      "x": 0,
+      "y": 0,
+      "z": 0
+    },
+    "yaw": 0,
+    "connections": []
+  }
+]

@@ -1,0 +1,22 @@
+[
+  {
+    "id": 1,
+    "name": "Station 01",
+    "infFile": "image2d-0.inf",
+    "sensorName": "af2419f7-1706-40f8-bf9d-550fd7e97758",
+    "panoramaUrl": "/data/Cuve_4/Station_01/pano_station_01.jpg",
+    "position": {
+      "x": 0.279571,
+      "y": -0.133876,
+      "z": 0.00233846
+    },
+    "rotation": {
+      "w": 0.5,
+      "x": 0.5,
+      "y": 0.5,
+      "z": 0.5
+    },
+    "yaw": 0,
+    "connections": []
+  }
+]

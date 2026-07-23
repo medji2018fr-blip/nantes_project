@@ -1,0 +1,46 @@
+[
+  {
+    "id": 1,
+    "name": "Station 01",
+    "infFile": "image2d-0.inf",
+    "sensorName": "0583f47c-456f-4ad6-89dd-26ab6a9d51ca",
+    "panoramaUrl": "/data/Cuve_2/Station_01/pano_station_01.jpg",
+    "position": {
+      "x": 1.21006,
+      "y": -0.68587,
+      "z": 0.00233895
+    },
+    "rotation": {
+      "w": 0.4595,
+      "x": 0.4595,
+      "y": 0.537457,
+      "z": 0.537457
+    },
+    "yaw": 0,
+    "connections": [
+      2
+    ]
+  },
+  {
+    "id": 2,
+    "name": "Station 02",
+    "infFile": "image2d-10.inf",
+    "sensorName": "c652cf0d-bb6a-4415-a0af-b2200965425c",
+    "panoramaUrl": "/data/Cuve_2/Station_02/pano_station_02.jpg",
+    "position": {
+      "x": 0.000060607,
+      "y": -0.000014902,
+      "z": 0.00233802
+    },
+    "rotation": {
+      "w": 5.06235e-16,
+      "x": 0.707107,
+      "y": 0.707107,
+      "z": 5.06235e-16
+    },
+    "yaw": 0,
+    "connections": [
+      1
+    ]
+  }
+]
