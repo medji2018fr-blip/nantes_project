@@ -78,6 +78,104 @@ function TexturePreloader({ urls }: { urls: string[] }) {
   return null;
 }
 
+// Global initial preloader with animated progress bar
+function GlobalAppPreloader({
+  urls,
+  onComplete,
+}: {
+  urls: string[];
+  onComplete: () => void;
+}) {
+  const [loadedCount, setLoadedCount] = useState(0);
+  const [fade, setFade] = useState(false);
+
+  useEffect(() => {
+    if (!urls || urls.length === 0) {
+      onComplete();
+      return;
+    }
+
+    let count = 0;
+    const total = urls.length;
+
+    urls.forEach((url) => {
+      const img = new Image();
+      img.src = url;
+      img.onload = () => {
+        count++;
+        setLoadedCount(count);
+        try {
+          useTexture.preload(url);
+        } catch {
+          // Ignore
+        }
+        if (count >= total) {
+          setTimeout(() => {
+            setFade(true);
+            setTimeout(onComplete, 400);
+          }, 300);
+        }
+      };
+      img.onerror = () => {
+        count++;
+        setLoadedCount(count);
+        if (count >= total) {
+          setTimeout(() => {
+            setFade(true);
+            setTimeout(onComplete, 400);
+          }, 300);
+        }
+      };
+    });
+  }, [urls, onComplete]);
+
+  const progress = Math.min(100, Math.round((loadedCount / (urls.length || 1)) * 100));
+
+  return (
+    <div
+      className={`fixed inset-0 z-50 bg-slate-950 flex flex-col items-center justify-center p-6 transition-opacity duration-500 ${
+        fade ? 'opacity-0 pointer-events-none' : 'opacity-100'
+      }`}
+    >
+      <div className="w-full max-w-md bg-slate-900/90 border border-slate-800 rounded-3xl p-8 shadow-2xl backdrop-blur-2xl flex flex-col items-center text-center space-y-6">
+        {/* Animated Spinner & Logo Icon */}
+        <div className="relative w-20 h-20 flex items-center justify-center">
+          <div className="absolute inset-0 rounded-full border-4 border-slate-800 border-t-amber-400 border-r-sky-400 animate-spin" />
+          <span className="text-3xl">🌐</span>
+        </div>
+
+        {/* Title */}
+        <div>
+          <h2 className="text-lg font-bold text-white tracking-wide">
+            Visite Virtuelle 3D HD
+          </h2>
+          <p className="text-xs text-slate-400 mt-1 font-mono">
+            Système Leica Cyclone Register 360
+          </p>
+        </div>
+
+        {/* Progress Bar Container */}
+        <div className="w-full space-y-2">
+          <div className="w-full h-3 bg-slate-950 rounded-full overflow-hidden border border-slate-800/80 p-0.5 shadow-inner">
+            <div
+              className="h-full bg-gradient-to-r from-amber-500 to-sky-400 rounded-full transition-all duration-200"
+              style={{ width: `${progress}%` }}
+            />
+          </div>
+          <div className="flex justify-between items-center text-[11px] font-mono text-slate-400 px-1">
+            <span>Préchargement des panoramas...</span>
+            <span className="font-bold text-amber-400">{progress}%</span>
+          </div>
+        </div>
+
+        <div className="text-[10px] font-mono text-slate-500 bg-slate-950/80 px-3.5 py-1.5 rounded-full border border-slate-800">
+          {loadedCount} / {urls.length} panoramas HD en mémoire
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function PanoramaSphere({
   url,
   yaw,
@@ -1145,6 +1243,20 @@ export default function Viewer3D({
     return [];
   }, [inputZones, inputStations]);
 
+  const [isPreloading, setIsPreloading] = useState(true);
+
+  const allUrls = useMemo(() => {
+    const list: string[] = [];
+    zones.forEach((z) => {
+      z.stations.forEach((s) => {
+        if (s.panoramaUrl && !list.includes(s.panoramaUrl)) {
+          list.push(s.panoramaUrl);
+        }
+      });
+    });
+    return list;
+  }, [zones]);
+
   const [showTour, setShowTour] = useState(false);
 
   useEffect(() => {
@@ -1264,6 +1376,14 @@ export default function Viewer3D({
 
   return (
     <div className="w-full h-screen relative bg-slate-950 select-none overflow-hidden font-sans">
+      {/* Global Preloader Screen */}
+      {isPreloading && (
+        <GlobalAppPreloader
+          urls={allUrls}
+          onComplete={() => setIsPreloading(false)}
+        />
+      )}
+
       {/* Background Preloader */}
       <TexturePreloader urls={preloadUrls} />
 
