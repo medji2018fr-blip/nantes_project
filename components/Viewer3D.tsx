@@ -561,7 +561,7 @@ function Minimap({
 
   const mapWidth = 460;
   const mapHeight = 350;
-  const padding = 48;
+  const padding = 65;
 
   const globalCenterX = (minX + maxX) / 2;
   const globalCenterY = (minY + maxY) / 2;
@@ -572,16 +572,48 @@ function Minimap({
   const availH = mapHeight - 2 * padding;
   const scale = Math.min(availW / spanX, availH / spanY);
 
-  const getMapCoords = (x: number, y: number) => {
-    const cx = mapWidth / 2 + (x - globalCenterX) * scale;
-    const cy = mapHeight / 2 - (y - globalCenterY) * scale;
-    return { cx, cy };
-  };
+  // Compute raw map coordinates
+  const rawCuveCoords = points.map((pt) => {
+    const cx = mapWidth / 2 + (pt.mapX - globalCenterX) * scale;
+    const cy = mapHeight / 2 - (pt.mapY - globalCenterY) * scale;
+    return { ...pt, cx, cy };
+  });
 
-  const activeCuvePoint = points.find((pt) => pt.zoneId === activeZoneId);
+  // Apply node repulsion relaxation so no two Cuves overlap on map (min distance 46px)
+  const MIN_DIST = 46;
+  const cuveMapPoints = rawCuveCoords.map((p) => ({ ...p }));
+  for (let iter = 0; iter < 30; iter++) {
+    for (let i = 0; i < cuveMapPoints.length; i++) {
+      for (let j = i + 1; j < cuveMapPoints.length; j++) {
+        const p1 = cuveMapPoints[i];
+        const p2 = cuveMapPoints[j];
+        const dx = p2.cx - p1.cx;
+        const dy = p2.cy - p1.cy;
+        const dist = Math.sqrt(dx * dx + dy * dy) || 0.1;
+        if (dist < MIN_DIST) {
+          const overlap = (MIN_DIST - dist) / 2;
+          const nx = dx / dist;
+          const ny = dy / dist;
+          p1.cx -= nx * overlap;
+          p1.cy -= ny * overlap;
+          p2.cx += nx * overlap;
+          p2.cy += ny * overlap;
+        }
+      }
+    }
+  }
+
+  // Strict edge clamping so NO point or selection ring is EVER cut off at boundaries
+  const MARGIN = 38;
+  cuveMapPoints.forEach((p) => {
+    p.cx = Math.max(MARGIN, Math.min(mapWidth - MARGIN, p.cx));
+    p.cy = Math.max(MARGIN, Math.min(mapHeight - MARGIN, p.cy));
+  });
+
+  const activeCuvePoint = cuveMapPoints.find((pt) => pt.zoneId === activeZoneId);
 
   const currentCoords = activeCuvePoint
-    ? getMapCoords(activeCuvePoint.mapX, activeCuvePoint.mapY)
+    ? { cx: activeCuvePoint.cx, cy: activeCuvePoint.cy }
     : { cx: mapWidth / 2, cy: mapHeight / 2 };
 
   const coneLength = 46;
@@ -614,7 +646,7 @@ function Minimap({
         </button>
       </div>
 
-      {/* SVG Canvas - 1 point per Cuve */}
+      {/* SVG Canvas - 1 point per Cuve with centered badge numbers */}
       <div className="relative overflow-hidden rounded-2xl bg-slate-900/90 border border-slate-800/90">
         <svg width={mapWidth} height={mapHeight} className="overflow-visible">
           {/* View Cone */}
@@ -629,11 +661,12 @@ function Minimap({
             />
           )}
 
-          {/* 1 Point per Cuve */}
-          {points.map((pt) => {
-            const { cx, cy } = getMapCoords(pt.mapX, pt.mapY);
+          {/* Points for Cuves with centered badge numbers */}
+          {cuveMapPoints.map((pt) => {
+            const { cx, cy } = pt;
             const isSelected = pt.zoneId === activeZoneId;
             const isHovered = hoveredCuve === pt.zoneId;
+            const cuveNum = pt.cuveName.replace('Cuve ', 'C');
 
             return (
               <g
@@ -643,37 +676,45 @@ function Minimap({
                 onMouseLeave={() => setHoveredCuve(null)}
                 className="cursor-pointer group"
               >
-                <circle cx={cx} cy={cy} r="18" fill="transparent" />
+                {/* Hit area */}
+                <circle cx={cx} cy={cy} r="22" fill="transparent" />
+
+                {/* Outer Selection Pulsing Ring */}
                 {isSelected && (
                   <circle
                     cx={cx}
                     cy={cy}
-                    r="12"
+                    r="18"
                     fill="none"
                     stroke="#38bdf8"
-                    strokeWidth="2"
-                    strokeOpacity="0.9"
+                    strokeWidth="3"
+                    strokeOpacity="0.95"
+                    className="animate-pulse"
                   />
                 )}
+
+                {/* Main Badge Circle */}
                 <circle
                   cx={cx}
                   cy={cy}
-                  r={isSelected ? 8.5 : isHovered ? 8 : 7}
+                  r={isSelected ? 13.5 : isHovered ? 13 : 12}
                   fill={isSelected ? '#38bdf8' : isHovered ? '#fbbf24' : '#f59e0b'}
-                  stroke={isSelected || isHovered ? '#ffffff' : 'transparent'}
-                  strokeWidth={isSelected || isHovered ? 2 : 0}
-                  className="transition-all duration-150"
+                  stroke={isSelected ? '#ffffff' : isHovered ? '#ffffff' : '#78350f'}
+                  strokeWidth={2}
+                  className="transition-all duration-150 shadow-md"
                 />
+
+                {/* Number Centered Directly Inside Point Circle */}
                 <text
                   x={cx}
-                  y={cy - 12}
+                  y={cy + 4}
                   textAnchor="middle"
-                  fontSize="10"
-                  fill={isSelected ? '#38bdf8' : isHovered ? '#fbbf24' : '#fcd34d'}
-                  fontWeight={isSelected || isHovered ? 'bold' : 'normal'}
-                  className="pointer-events-none select-none font-mono"
+                  fontSize="11"
+                  fill={isSelected ? '#090d16' : '#0f172a'}
+                  fontWeight="bold"
+                  className="pointer-events-none select-none font-mono tracking-tighter"
                 >
-                  {pt.cuveName.replace('Cuve ', 'C')}
+                  {cuveNum}
                 </text>
               </g>
             );
@@ -929,6 +970,159 @@ function StationInspectorModal({
   );
 }
 
+// Direct On-Interface Tour Guide Callout Card (Spotlight style directly on UI elements)
+function InteractiveTourGuide({ onClose }: { onClose: () => void }) {
+  const [stepIndex, setStepIndex] = useState(0);
+
+  const steps = [
+    {
+      title: 'Orientation 360°',
+      badge: 'Étape 1 / 4',
+      icon: '🌐',
+      description:
+        'Faites glisser votre souris directement dans l’image pour explorer le site à 360° dans toutes les directions.',
+      pointerPosition: 'top-24 left-1/2 -translate-x-1/2',
+    },
+    {
+      title: 'Carte 2D Minimap & Navigation',
+      badge: 'Étape 2 / 4',
+      icon: '🗺️',
+      description:
+        'Cette carte affiche la position des stations du site. Le cône bleu s’oriente avec votre regard. Cliquez sur un point numéroté pour vous y téléporter.',
+      pointerPosition: 'bottom-[480px] right-6 md:right-10',
+    },
+    {
+      title: 'Accéder aux Cuves (Niveau -1)',
+      badge: 'Étape 3 / 4',
+      icon: '⬇️',
+      description:
+        'Cliquez sur le bouton "Entrer aux Cuves" (ou sur l’une des cuves C1 à C6) pour descendre visiter l’intérieur des cuves au Niveau -1.',
+      pointerPosition: 'bottom-[480px] right-6 md:right-10',
+    },
+    {
+      title: 'Navigation Point par Point dans la Cuve',
+      badge: 'Étape 4 / 4',
+      icon: '↔️',
+      description:
+        'Dans une cuve, utilisez les boutons ◄ Précédent et Suivant ► au bas de la carte 2D pour parcourir les différentes stations. Cliquez sur ⬆️ Extérieur pour remonter.',
+      pointerPosition: 'bottom-[480px] right-6 md:right-10',
+    },
+  ];
+
+  const currentStep = steps[stepIndex];
+
+  const handleNext = () => {
+    if (stepIndex < steps.length - 1) {
+      setStepIndex(stepIndex + 1);
+    } else {
+      localStorage.setItem('jet_clickone_tour_completed', 'true');
+      onClose();
+    }
+  };
+
+  const handlePrev = () => {
+    if (stepIndex > 0) {
+      setStepIndex(stepIndex - 1);
+    }
+  };
+
+  return (
+    <>
+      {/* Step 1 Central Pointer Cue */}
+      {stepIndex === 0 && (
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-30 pointer-events-none flex flex-col items-center gap-3 animate-pulse">
+          <div className="w-20 h-20 rounded-full border-2 border-amber-400/80 bg-amber-500/10 flex items-center justify-center shadow-2xl">
+            <span className="text-3xl">🖱️</span>
+          </div>
+          <span className="text-xs font-mono font-bold text-amber-300 bg-slate-950/90 px-3 py-1.5 rounded-full border border-amber-500/50 shadow-xl">
+            Glissez la souris à 360°
+          </span>
+        </div>
+      )}
+
+      {/* Steps 2, 3, 4 Pointer Ring around 2D Minimap */}
+      {stepIndex >= 1 && (
+        <div className="absolute bottom-6 right-6 w-[500px] h-[450px] rounded-3xl ring-4 ring-amber-400 ring-offset-4 ring-offset-slate-950 z-30 pointer-events-none animate-pulse" />
+      )}
+
+      {/* On-Interface Callout Tooltip Card */}
+      <div
+        className={`absolute z-40 w-full max-w-sm ${currentStep.pointerPosition} transition-all duration-300 animate-fadeIn`}
+      >
+        <div className="bg-slate-950/95 backdrop-blur-2xl border-2 border-amber-500/80 rounded-3xl shadow-2xl p-5 relative text-white">
+          {/* Header */}
+          <div className="flex items-center justify-between pb-3 border-b border-slate-800">
+            <div className="flex items-center gap-2.5">
+              <span className="text-2xl">{currentStep.icon}</span>
+              <div>
+                <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-amber-400 bg-amber-950/80 px-2 py-0.5 rounded-full border border-amber-800/60">
+                  {currentStep.badge}
+                </span>
+                <h3 className="text-sm font-bold text-white mt-0.5">
+                  {currentStep.title}
+                </h3>
+              </div>
+            </div>
+            <button
+              onClick={() => {
+                localStorage.setItem('jet_clickone_tour_completed', 'true');
+                onClose();
+              }}
+              className="text-slate-400 hover:text-white text-xs p-1.5 rounded-lg hover:bg-slate-800 transition cursor-pointer"
+            >
+              ✕
+            </button>
+          </div>
+
+          {/* Description */}
+          <p className="text-xs text-slate-300 leading-relaxed py-3">
+            {currentStep.description}
+          </p>
+
+          {/* Stepper Dots & Navigation Buttons */}
+          <div className="flex items-center justify-between pt-2 border-t border-slate-800/80">
+            <div className="flex items-center gap-1.5">
+              {steps.map((_, idx) => (
+                <button
+                  key={idx}
+                  onClick={() => setStepIndex(idx)}
+                  className={`h-2 rounded-full transition-all duration-300 cursor-pointer ${
+                    idx === stepIndex
+                      ? 'w-6 bg-amber-400'
+                      : 'w-2 bg-slate-700 hover:bg-slate-600'
+                  }`}
+                />
+              ))}
+            </div>
+
+            <div className="flex items-center gap-2">
+              {stepIndex > 0 && (
+                <button
+                  onClick={handlePrev}
+                  className="px-3 py-1.5 rounded-xl text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-slate-200 transition cursor-pointer"
+                >
+                  ◄ Précédent
+                </button>
+              )}
+              <button
+                onClick={handleNext}
+                className="px-4 py-1.5 bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs font-bold rounded-xl transition shadow-md shadow-amber-500/20 cursor-pointer"
+              >
+                {stepIndex === steps.length - 1 ? 'J\'ai compris !' : 'Suivant ►'}
+              </button>
+            </div>
+          </div>
+
+          {/* Downward Pointer Arrow */}
+          <div className="absolute -bottom-3 left-1/2 -translate-x-1/2 text-amber-500 text-lg leading-none pointer-events-none">
+            ▼
+          </div>
+        </div>
+      </div>
+    </>
+  );
+}
+
 export default function Viewer3D({
   zones: inputZones,
   stations: inputStations,
@@ -950,6 +1144,15 @@ export default function Viewer3D({
     }
     return [];
   }, [inputZones, inputStations]);
+
+  const [showTour, setShowTour] = useState(false);
+
+  useEffect(() => {
+    const tourCompleted = localStorage.getItem('jet_clickone_tour_completed');
+    if (!tourCompleted) {
+      setShowTour(true);
+    }
+  }, []);
 
   const [activeZoneId, setActiveZoneId] = useState<string>(
     zones[0]?.id || 'PanoramasExterieur'
@@ -1106,6 +1309,14 @@ export default function Viewer3D({
 
         <div className="flex items-center gap-2 pointer-events-auto">
           <button
+            onClick={() => setShowTour(true)}
+            className="bg-slate-900/85 backdrop-blur-md px-3.5 py-2 rounded-2xl border border-slate-800 text-amber-400 hover:text-white hover:bg-slate-800 text-xs font-semibold transition shadow-xl cursor-pointer flex items-center gap-1.5"
+            title="Ouvrir le guide d'utilisation"
+          >
+            <span>❓ Guide</span>
+          </button>
+
+          <button
             onClick={() => setShowMinimap(!showMinimap)}
             className="bg-slate-900/85 backdrop-blur-md px-3.5 py-2 rounded-2xl border border-slate-800 text-slate-200 hover:text-white hover:bg-slate-800 text-xs font-semibold transition shadow-xl cursor-pointer"
           >
@@ -1132,6 +1343,11 @@ export default function Viewer3D({
       <div className="absolute bottom-6 left-6 z-10">
         <CompassWidget azimuth={cameraAzimuth} />
       </div>
+
+      {/* Interactive Tour Guide Modal */}
+      {showTour && (
+        <InteractiveTourGuide onClose={() => setShowTour(false)} />
+      )}
 
       {/* Data Inspector Modal */}
       {showInspector && (
