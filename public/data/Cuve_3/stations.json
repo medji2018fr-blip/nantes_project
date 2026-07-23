@@ -1,7 +1,7 @@
 [
   {
     "id": 1,
-    "name": "Station 01",
+    "name": "3.1",
     "infFile": "image2d-0.inf",
     "sensorName": "f8c82054-f586-42db-8d94-ece27bfe364c",
     "panoramaUrl": "/data/Cuve_3/Station_01/pano_station_01.jpg",
@@ -24,7 +24,7 @@
   },
   {
     "id": 2,
-    "name": "Station 02",
+    "name": "3.2",
     "infFile": "image2d-0.inf",
     "sensorName": "c1ffebca-fc6f-43c7-b683-f3368cd05753",
     "panoramaUrl": "/data/Cuve_3/Station_02/pano_station_02.jpg",
@@ -47,7 +47,7 @@
   },
   {
     "id": 3,
-    "name": "Station 03",
+    "name": "3.3",
     "infFile": "image2d-10.inf",
     "sensorName": "96f71a88-19cf-4da6-a554-0b7ee1cf1b6a",
     "panoramaUrl": "/data/Cuve_3/Station_03/pano_station_03.jpg",

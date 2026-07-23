@@ -847,11 +847,11 @@ function Minimap({
         </button>
 
         <div className="flex flex-col items-center">
-          <span className="text-xs font-bold text-slate-200">
-            Point {Math.max(1, activeZone.stations.findIndex((s) => s.id === currentId) + 1)} / {activeZone.stations.length || 1}
+          <span className="text-xs font-bold text-amber-300 font-mono">
+            Point {activeZone.stations.find((s) => s.id === currentId)?.name || `${activeZone.name.replace('Cuve ', '')}.${currentId}`}
           </span>
           <span className="text-[10px] text-slate-400 font-sans">
-            Station {currentId}
+            ({Math.max(1, activeZone.stations.findIndex((s) => s.id === currentId) + 1)} sur {activeZone.stations.length || 1})
           </span>
         </div>
 
