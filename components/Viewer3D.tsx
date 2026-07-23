@@ -298,9 +298,9 @@ function Minimap({
   // If in Exterior mode, render classic minimap matching screenshot
   if (isAtTop && extMinimapData) {
     const { stations, minX, maxX, minY, maxY } = extMinimapData;
-    const mapWidth = 230;
-    const mapHeight = 190;
-    const padding = 24;
+    const mapWidth = 360;
+    const mapHeight = 280;
+    const padding = 32;
 
     const globalCenterX = (minX + maxX) / 2;
     const globalCenterY = (minY + maxY) / 2;
@@ -323,7 +323,7 @@ function Minimap({
       ? getMapCoords(currentStation.position.x, currentStation.position.y)
       : { cx: mapWidth / 2, cy: mapHeight / 2 };
 
-    const coneLength = 28;
+    const coneLength = 38;
     const coneSpread = Math.PI / 5;
     const mapAngle = -cameraAzimuth - Math.PI / 2;
     const coneLeft = {
@@ -336,8 +336,8 @@ function Minimap({
     };
 
     return (
-      <div className="bg-slate-950/85 backdrop-blur-md p-3.5 rounded-2xl border border-slate-800 shadow-2xl w-[255px]">
-        <div className="text-[11px] font-bold tracking-wider text-slate-400 uppercase mb-2 flex justify-between items-center select-none">
+      <div className="bg-slate-950/90 backdrop-blur-xl p-4 rounded-3xl border border-slate-800 shadow-2xl w-[395px]">
+        <div className="text-[12px] font-bold tracking-wider text-slate-400 uppercase mb-2.5 flex justify-between items-center select-none">
           <span>PLAN DES STATIONS</span>
           <button
             onClick={() => {
@@ -346,7 +346,7 @@ function Minimap({
                 onSelectStation(1, cuveZones[0].id);
               }
             }}
-            className="px-2.5 py-0.5 bg-amber-500 hover:bg-amber-400 text-slate-950 text-[10px] font-bold rounded-lg transition shadow-md cursor-pointer flex items-center gap-1"
+            className="px-3 py-1 bg-amber-500 hover:bg-amber-400 text-slate-950 text-[11px] font-bold rounded-xl transition shadow-md cursor-pointer flex items-center gap-1"
             title="Descendre aux Cuves (Niveau -1)"
           >
             <span>⬇️ Cuves</span>
@@ -358,10 +358,10 @@ function Minimap({
             <polygon
               points={`${currentCoords.cx},${currentCoords.cy} ${coneLeft.x},${coneLeft.y} ${coneRight.x},${coneRight.y}`}
               fill="#38bdf8"
-              opacity={0.15}
+              opacity={0.18}
               stroke="#38bdf8"
-              strokeWidth={0.5}
-              strokeOpacity={0.4}
+              strokeWidth={0.75}
+              strokeOpacity={0.5}
             />
           )}
 
@@ -383,9 +383,9 @@ function Minimap({
                   x2={to.cx}
                   y2={to.cy}
                   stroke={isCurrentConn ? '#38bdf8' : '#334155'}
-                  strokeWidth={isCurrentConn ? 2 : 1}
-                  strokeDasharray={isCurrentConn ? 'none' : '2,2'}
-                  opacity={isCurrentConn ? 0.9 : 0.5}
+                  strokeWidth={isCurrentConn ? 2.5 : 1.25}
+                  strokeDasharray={isCurrentConn ? 'none' : '3,3'}
+                  opacity={isCurrentConn ? 0.95 : 0.45}
                 />
               );
             });
@@ -403,22 +403,22 @@ function Minimap({
                 onClick={() => onSelectStation(s.id)}
                 style={{ cursor: 'pointer' }}
               >
-                <circle cx={cx} cy={cy} r="14" fill="transparent" />
+                <circle cx={cx} cy={cy} r="16" fill="transparent" />
                 <circle
                   cx={cx}
                   cy={cy}
-                  r={isSelected ? 6 : isConnected ? 5 : 4}
+                  r={isSelected ? 7.5 : isConnected ? 6 : 5}
                   fill={isSelected ? '#38bdf8' : isConnected ? '#38bdf8' : '#64748b'}
                   stroke={isSelected ? '#fff' : 'transparent'}
-                  strokeWidth={isSelected ? 1.5 : 0}
+                  strokeWidth={isSelected ? 2 : 0}
                 >
                   <title>{s.name}</title>
                 </circle>
                 <text
                   x={cx}
-                  y={cy - 9}
+                  y={cy - 11}
                   textAnchor="middle"
-                  fontSize="8"
+                  fontSize="9.5"
                   fill={isSelected ? '#38bdf8' : '#94a3b8'}
                   fontWeight={isSelected ? 'bold' : 'normal'}
                   className="pointer-events-none select-none font-mono"
@@ -430,10 +430,10 @@ function Minimap({
           })}
 
           {/* Compass Rose */}
-          <text x={mapWidth / 2} y={8} textAnchor="middle" fontSize="9" fill="#ef4444" fontWeight="bold" className="select-none">N</text>
-          <text x={mapWidth / 2} y={mapHeight - 2} textAnchor="middle" fontSize="8" fill="#64748b" className="select-none">S</text>
-          <text x={5} y={mapHeight / 2 + 3} textAnchor="start" fontSize="8" fill="#64748b" className="select-none">O</text>
-          <text x={mapWidth - 5} y={mapHeight / 2 + 3} textAnchor="end" fontSize="8" fill="#64748b" className="select-none">E</text>
+          <text x={mapWidth / 2} y={12} textAnchor="middle" fontSize="10" fill="#ef4444" fontWeight="bold" className="select-none">N</text>
+          <text x={mapWidth / 2} y={mapHeight - 2} textAnchor="middle" fontSize="9" fill="#64748b" className="select-none">S</text>
+          <text x={6} y={mapHeight / 2 + 4} textAnchor="start" fontSize="9" fill="#64748b" className="select-none">O</text>
+          <text x={mapWidth - 6} y={mapHeight / 2 + 4} textAnchor="end" fontSize="9" fill="#64748b" className="select-none">E</text>
         </svg>
       </div>
     );
@@ -443,9 +443,9 @@ function Minimap({
   if (!cuveMinimapData) return null;
   const { points, minX, maxX, minY, maxY } = cuveMinimapData;
 
-  const mapWidth = 280;
-  const mapHeight = 210;
-  const padding = 32;
+  const mapWidth = 360;
+  const mapHeight = 280;
+  const padding = 38;
 
   const globalCenterX = (minX + maxX) / 2;
   const globalCenterY = (minY + maxY) / 2;
@@ -468,7 +468,7 @@ function Minimap({
     ? getMapCoords(activeCuvePoint.mapX, activeCuvePoint.mapY)
     : { cx: mapWidth / 2, cy: mapHeight / 2 };
 
-  const coneLength = 30;
+  const coneLength = 38;
   const coneSpread = Math.PI / 5;
   const mapAngle = -cameraAzimuth - Math.PI / 2;
   const coneLeft = {
@@ -922,16 +922,17 @@ export default function Viewer3D({
               yaw={(currentStation.yaw || 0) + globalYawOffset}
             />
 
-            {/* 3D Green Navigation Hotspots projected directly in the 360 photo */}
-            {connectedStations.map((targetSt) => (
-              <NavigationHotspot3D
-                key={`hotspot-${targetSt.id}`}
-                currentPos={currentStation.position}
-                targetStation={targetSt}
-                yawOffset={(currentStation.yaw || 0) + globalYawOffset}
-                onClick={() => navigateToStation(targetSt.id)}
-              />
-            ))}
+            {/* 3D Green Navigation Hotspots projected directly in the 360 photo (only inside Cuves) */}
+            {!isAtTop &&
+              connectedStations.map((targetSt) => (
+                <NavigationHotspot3D
+                  key={`hotspot-${targetSt.id}`}
+                  currentPos={currentStation.position}
+                  targetStation={targetSt}
+                  yawOffset={(currentStation.yaw || 0) + globalYawOffset}
+                  onClick={() => navigateToStation(targetSt.id)}
+                />
+              ))}
           </React.Suspense>
         )}
       </Canvas>
@@ -945,11 +946,6 @@ export default function Viewer3D({
               <span>{isAtTop ? 'Niveau 0 (Extérieur)' : `Niveau -1 (${activeZone.name})`}</span>
               <span className="text-slate-400 font-normal">•</span>
               <span>{currentStation?.name}</span>
-              {currentStation && (
-                <span className="text-[10px] font-mono font-normal text-sky-400 bg-sky-950/60 px-2 py-0.5 rounded-full border border-sky-800">
-                  X: {currentStation.position.x.toFixed(2)}m | Y: {currentStation.position.y.toFixed(2)}m
-                </span>
-              )}
             </h1>
             <p className="text-[11px] text-slate-400">
               Station {currentStation?.id} / {activeZone.stations.length}
@@ -967,9 +963,9 @@ export default function Viewer3D({
         </div>
       </div>
 
-      {/* 2D Minimap Floating Card */}
+      {/* 2D Minimap Floating Card (Bottom-Right, Enlarged) */}
       {showMinimap && (
-        <div className="absolute top-20 right-4 z-10 hidden md:block">
+        <div className="absolute bottom-6 right-6 z-10 hidden md:block">
           <Minimap
             zones={zones}
             activeZoneId={activeZoneId}
@@ -982,7 +978,7 @@ export default function Viewer3D({
       )}
 
       {/* Compass Widget (bottom-left) */}
-      <div className="absolute bottom-24 left-4 z-10">
+      <div className="absolute bottom-6 left-6 z-10">
         <CompassWidget azimuth={cameraAzimuth} />
       </div>
 
