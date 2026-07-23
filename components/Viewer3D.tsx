@@ -204,6 +204,117 @@ function NavigationHotspot3D({
   );
 }
 
+// Gold/Amber 3D Cuve Entrance Marker (displayed when near Cuves in Exterior view)
+function CuveMarker3D({
+  currentPos,
+  cuveZone,
+  yawOffset,
+  onClick,
+}: {
+  currentPos: Position;
+  cuveZone: ZoneData;
+  yawOffset: number;
+  onClick: () => void;
+}) {
+  const [hovered, setHovered] = useState(false);
+
+  const anchorX = cuveZone.exteriorCoords?.x ?? 0;
+  const anchorY = cuveZone.exteriorCoords?.y ?? 0;
+
+  const dx = anchorX - currentPos.x;
+  const dy = anchorY - currentPos.y;
+  const distance = Math.sqrt(dx * dx + dy * dy);
+
+  // Proximity threshold: display only when near the cuve (<= 20 meters)
+  if (distance > 20) return null;
+
+  const dirDist = distance || 1;
+  const dirX = dx / dirDist;
+  const dirY = -0.15; // Positioned slightly below eye level
+  const dirZ = -dy / dirDist;
+
+  const r = 13;
+  const posVec = new THREE.Vector3(dirX * r, dirY * r, dirZ * r);
+  posVec.applyAxisAngle(new THREE.Vector3(0, 1, 0), yawOffset);
+
+  const groupRef = useRef<THREE.Group>(null);
+
+  useFrame(({ camera }) => {
+    if (groupRef.current) {
+      groupRef.current.quaternion.copy(camera.quaternion);
+    }
+  });
+
+  return (
+    <group position={[posVec.x, posVec.y, posVec.z]}>
+      <group ref={groupRef}>
+        {/* Invisible Hit Sphere (r = 1.4m) */}
+        <mesh
+          onClick={(e) => {
+            e.stopPropagation();
+            onClick();
+          }}
+          onPointerOver={(e) => {
+            e.stopPropagation();
+            setHovered(true);
+            document.body.style.cursor = 'pointer';
+          }}
+          onPointerOut={() => {
+            setHovered(false);
+            document.body.style.cursor = 'auto';
+          }}
+        >
+          <sphereGeometry args={[1.4, 16, 16]} />
+          <meshBasicMaterial visible={false} />
+        </mesh>
+
+        {/* Outer Amber Ring */}
+        <mesh>
+          <ringGeometry args={[0.65, 0.9, 32]} />
+          <meshBasicMaterial
+            color={hovered ? '#fbbf24' : '#f59e0b'}
+            side={THREE.DoubleSide}
+            transparent
+            opacity={0.95}
+          />
+        </mesh>
+
+        {/* Inner Gold Disc */}
+        <mesh>
+          <circleGeometry args={[0.6, 32]} />
+          <meshBasicMaterial
+            color={hovered ? '#fef08a' : '#d97706'}
+            side={THREE.DoubleSide}
+            transparent
+            opacity={hovered ? 0.95 : 0.85}
+          />
+        </mesh>
+      </group>
+
+      {/* HTML Overlay Badge */}
+      <Html position={[0, 1.25, 0]} center distanceFactor={18}>
+        <div
+          onClick={(e) => {
+            e.stopPropagation();
+            onClick();
+          }}
+          onMouseEnter={() => setHovered(true)}
+          onMouseLeave={() => setHovered(false)}
+          className={`px-3.5 py-1.5 rounded-full text-xs font-mono font-bold transition-all duration-200 shadow-2xl flex items-center gap-2 cursor-pointer whitespace-nowrap select-none ${
+            hovered
+              ? 'bg-amber-400 text-slate-950 scale-110 shadow-amber-500/50'
+              : 'bg-slate-950/90 text-amber-400 border border-amber-500/70 shadow-xl'
+          }`}
+        >
+          <span className="w-2.5 h-2.5 rounded-full bg-amber-400 animate-ping"></span>
+          <span>⬇️ {cuveZone.name}</span>
+          <span className="text-[10px] opacity-80">({distance.toFixed(1)}m)</span>
+        </div>
+      </Html>
+    </group>
+  );
+}
+
 // 2D Minimap overlay component:
 // - Mode Extérieur (Niveau 0): Exact classic design from screenshot (PLAN DES STATIONS 2D MAP)
 // - Mode Cuve (Niveau -1): 1 point per Cuve (5 Cuves) with Cuve prev/next navigation & Extérieur return
@@ -796,6 +907,11 @@ export default function Viewer3D({
   const [activeZoneId, setActiveZoneId] = useState<string>(
     zones[0]?.id || 'PanoramasExterieur'
   );
+
+  const cuveZones = useMemo(
+    () => zones.filter((z) => z.id.startsWith('Cuve_')),
+    [zones]
+  );
   const [currentId, setCurrentId] = useState(1);
   const [showMinimap, setShowMinimap] = useState(true);
   const [showInspector, setShowInspector] = useState(false);
@@ -931,6 +1047,18 @@ export default function Viewer3D({
                   targetStation={targetSt}
                   yawOffset={(currentStation.yaw || 0) + globalYawOffset}
                   onClick={() => navigateToStation(targetSt.id)}
+                />
+              ))}
+
+            {/* 3D Amber Cuve Entrance Markers in Exterior view (displayed when near a Cuve) */}
+            {isAtTop &&
+              cuveZones.map((cz) => (
+                <CuveMarker3D
+                  key={`cuve-marker-${cz.id}`}
+                  currentPos={currentStation.position}
+                  cuveZone={cz}
+                  yawOffset={(currentStation.yaw || 0) + globalYawOffset}
+                  onClick={() => navigateToStation(1, cz.id)}
                 />
               ))}
           </React.Suspense>
