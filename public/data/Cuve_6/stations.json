@@ -1,20 +1,80 @@
 [
   {
     "id": 1,
-    "name": "Station 01",
-    "panoramaUrl": "/data/Cuve_6/Station_01/pano_station_01.jpg",
+    "name": "Point 1 (cuve6.0.1)",
+    "panoramaUrl": "/data/Cuve_6/cuve6.0.1.jpg",
     "position": {
-      "x": 20.0,
-      "y": 5.0,
+      "x": 0.209302,
+      "y": -5.48837,
       "z": 0.0
     },
-    "rotation": {
-      "w": 1,
-      "x": 0,
-      "y": 0,
-      "z": 0
-    },
+    "rotation": { "w": 1, "x": 0, "y": 0, "z": 0 },
     "yaw": 0,
-    "connections": []
+    "connections": [2]
+  },
+  {
+    "id": 2,
+    "name": "Point 2 (cuve6.0.2)",
+    "panoramaUrl": "/data/Cuve_6/cuve6.0.2.jpg",
+    "position": {
+      "x": 0.116279,
+      "y": -1.82171,
+      "z": 0.0
+    },
+    "rotation": { "w": 1, "x": 0, "y": 0, "z": 0 },
+    "yaw": 0,
+    "connections": [1, 3]
+  },
+  {
+    "id": 3,
+    "name": "Point 3 (cuve6.1)",
+    "panoramaUrl": "/data/Cuve_6/cuve6.1.jpg",
+    "position": {
+      "x": 0.3,
+      "y": -3.5,
+      "z": 0.0
+    },
+    "rotation": { "w": 1, "x": 0, "y": 0, "z": 0 },
+    "yaw": 0,
+    "connections": [2, 4]
+  },
+  {
+    "id": 4,
+    "name": "Point 4 (cuve6.2.1)",
+    "panoramaUrl": "/data/Cuve_6/cuve6.2.1.jpg",
+    "position": {
+      "x": 0.45,
+      "y": -4.2,
+      "z": 0.0
+    },
+    "rotation": { "w": 1, "x": 0, "y": 0, "z": 0 },
+    "yaw": 0,
+    "connections": [3, 5]
+  },
+  {
+    "id": 5,
+    "name": "Point 5 (cuve6.2.2)",
+    "panoramaUrl": "/data/Cuve_6/cuve6.2.2.jpg",
+    "position": {
+      "x": 0.6,
+      "y": -4.8,
+      "z": 0.0
+    },
+    "rotation": { "w": 1, "x": 0, "y": 0, "z": 0 },
+    "yaw": 0,
+    "connections": [4, 6]
+  },
+  {
+    "id": 6,
+    "name": "Point 6 (cuve6.2.3)",
+    "panoramaUrl": "/data/Cuve_6/cuve6.2.3.jpg",
+    "position": {
+      "x": 0.75,
+      "y": -5.3,
+      "z": 0.0
+    },
+    "rotation": { "w": 1, "x": 0, "y": 0, "z": 0 },
+    "yaw": 0,
+    "connections": [5]
   }
 ]

@@ -1,0 +1,20 @@
+[
+  {
+    "id": 1,
+    "name": "Station 44",
+    "panoramaUrl": "/data/31149_piscine_rdc_ext_044/pano_31149_piscine_rdc_ext_044.jpg",
+    "position": {
+      "x": 0.116279,
+      "y": -1.82171,
+      "z": 0.0
+    },
+    "rotation": {
+      "w": 1,
+      "x": 0,
+      "y": 0,
+      "z": 0
+    },
+    "yaw": 0,
+    "connections": []
+  }
+]
