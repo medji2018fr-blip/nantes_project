@@ -409,9 +409,9 @@ function Minimap({
   // If in Exterior mode, render classic minimap matching screenshot
   if (isAtTop && extMinimapData) {
     const { stations, minX, maxX, minY, maxY } = extMinimapData;
-    const mapWidth = 360;
-    const mapHeight = 280;
-    const padding = 32;
+    const mapWidth = 460;
+    const mapHeight = 350;
+    const padding = 42;
 
     const globalCenterX = (minX + maxX) / 2;
     const globalCenterY = (minY + maxY) / 2;
@@ -434,7 +434,7 @@ function Minimap({
       ? getMapCoords(currentStation.position.x, currentStation.position.y)
       : { cx: mapWidth / 2, cy: mapHeight / 2 };
 
-    const coneLength = 38;
+    const coneLength = 46;
     const coneSpread = Math.PI / 5;
     const mapAngle = -cameraAzimuth - Math.PI / 2;
     const coneLeft = {
@@ -447,9 +447,12 @@ function Minimap({
     };
 
     return (
-      <div className="bg-slate-950/90 backdrop-blur-xl p-4 rounded-3xl border border-slate-800 shadow-2xl w-[395px]">
-        <div className="text-[12px] font-bold tracking-wider text-slate-400 uppercase mb-2.5 flex justify-between items-center select-none">
-          <span>PLAN DES STATIONS</span>
+      <div className="bg-slate-950/90 backdrop-blur-xl p-4.5 rounded-3xl border border-slate-800 shadow-2xl w-[500px]">
+        <div className="text-[13px] font-bold tracking-wider text-slate-300 uppercase mb-3 flex justify-between items-center select-none">
+          <span className="flex items-center gap-2">
+            <span className="w-2.5 h-2.5 rounded-full bg-emerald-400"></span>
+            PLAN DES STATIONS 2D
+          </span>
           <button
             onClick={() => {
               const cuveZones = zones.filter((z) => z.id.startsWith('Cuve_'));
@@ -457,95 +460,97 @@ function Minimap({
                 onSelectStation(1, cuveZones[0].id);
               }
             }}
-            className="px-3 py-1 bg-amber-500 hover:bg-amber-400 text-slate-950 text-[11px] font-bold rounded-xl transition shadow-md cursor-pointer flex items-center gap-1"
+            className="px-3.5 py-1.5 bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs font-bold rounded-xl transition shadow-md cursor-pointer flex items-center gap-1.5"
             title="Descendre aux Cuves (Niveau -1)"
           >
-            <span>⬇️ Cuves</span>
+            <span>⬇️ Entrer aux Cuves</span>
           </button>
         </div>
-        <svg width={mapWidth} height={mapHeight} className="overflow-visible">
-          {/* View Cone */}
-          {currentStation && (
-            <polygon
-              points={`${currentCoords.cx},${currentCoords.cy} ${coneLeft.x},${coneLeft.y} ${coneRight.x},${coneRight.y}`}
-              fill="#38bdf8"
-              opacity={0.18}
-              stroke="#38bdf8"
-              strokeWidth={0.75}
-              strokeOpacity={0.5}
-            />
-          )}
+        <div className="relative overflow-hidden rounded-2xl bg-slate-900/90 border border-slate-800/90">
+          <svg width={mapWidth} height={mapHeight} className="overflow-visible">
+            {/* View Cone */}
+            {currentStation && (
+              <polygon
+                points={`${currentCoords.cx},${currentCoords.cy} ${coneLeft.x},${coneLeft.y} ${coneRight.x},${coneRight.y}`}
+                fill="#38bdf8"
+                opacity={0.18}
+                stroke="#38bdf8"
+                strokeWidth={0.75}
+                strokeOpacity={0.5}
+              />
+            )}
 
-          {/* Draw connections */}
-          {stations.map((s) => {
-            const from = getMapCoords(s.position.x, s.position.y);
-            return s.connections.map((targetId) => {
-              if (targetId < s.id) return null;
-              const target = stations.find((t) => t.id === targetId);
-              if (!target) return null;
-              const to = getMapCoords(target.position.x, target.position.y);
-              const isCurrentConn = s.id === currentId || targetId === currentId;
+            {/* Draw connections */}
+            {stations.map((s) => {
+              const from = getMapCoords(s.position.x, s.position.y);
+              return s.connections.map((targetId) => {
+                if (targetId < s.id) return null;
+                const target = stations.find((t) => t.id === targetId);
+                if (!target) return null;
+                const to = getMapCoords(target.position.x, target.position.y);
+                const isCurrentConn = s.id === currentId || targetId === currentId;
+
+                return (
+                  <line
+                    key={`${s.id}-${targetId}`}
+                    x1={from.cx}
+                    y1={from.cy}
+                    x2={to.cx}
+                    y2={to.cy}
+                    stroke={isCurrentConn ? '#38bdf8' : '#334155'}
+                    strokeWidth={isCurrentConn ? 2.5 : 1.25}
+                    strokeDasharray={isCurrentConn ? 'none' : '3,3'}
+                    opacity={isCurrentConn ? 0.95 : 0.45}
+                  />
+                );
+              });
+            })}
+
+            {/* Draw Station Dots */}
+            {stations.map((s) => {
+              const { cx, cy } = getMapCoords(s.position.x, s.position.y);
+              const isSelected = s.id === currentId;
+              const isConnected = currentStation?.connections.includes(s.id);
 
               return (
-                <line
-                  key={`${s.id}-${targetId}`}
-                  x1={from.cx}
-                  y1={from.cy}
-                  x2={to.cx}
-                  y2={to.cy}
-                  stroke={isCurrentConn ? '#38bdf8' : '#334155'}
-                  strokeWidth={isCurrentConn ? 2.5 : 1.25}
-                  strokeDasharray={isCurrentConn ? 'none' : '3,3'}
-                  opacity={isCurrentConn ? 0.95 : 0.45}
-                />
+                <g
+                  key={s.id}
+                  onClick={() => onSelectStation(s.id)}
+                  style={{ cursor: 'pointer' }}
+                >
+                  <circle cx={cx} cy={cy} r="18" fill="transparent" />
+                  <circle
+                    cx={cx}
+                    cy={cy}
+                    r={isSelected ? 8.5 : isConnected ? 7 : 5.5}
+                    fill={isSelected ? '#38bdf8' : isConnected ? '#38bdf8' : '#64748b'}
+                    stroke={isSelected ? '#fff' : 'transparent'}
+                    strokeWidth={isSelected ? 2 : 0}
+                  >
+                    <title>{s.name}</title>
+                  </circle>
+                  <text
+                    x={cx}
+                    y={cy - 12}
+                    textAnchor="middle"
+                    fontSize="10"
+                    fill={isSelected ? '#38bdf8' : '#94a3b8'}
+                    fontWeight={isSelected ? 'bold' : 'normal'}
+                    className="pointer-events-none select-none font-mono"
+                  >
+                    {s.id}
+                  </text>
+                </g>
               );
-            });
-          })}
+            })}
 
-          {/* Draw Station Dots */}
-          {stations.map((s) => {
-            const { cx, cy } = getMapCoords(s.position.x, s.position.y);
-            const isSelected = s.id === currentId;
-            const isConnected = currentStation?.connections.includes(s.id);
-
-            return (
-              <g
-                key={s.id}
-                onClick={() => onSelectStation(s.id)}
-                style={{ cursor: 'pointer' }}
-              >
-                <circle cx={cx} cy={cy} r="16" fill="transparent" />
-                <circle
-                  cx={cx}
-                  cy={cy}
-                  r={isSelected ? 7.5 : isConnected ? 6 : 5}
-                  fill={isSelected ? '#38bdf8' : isConnected ? '#38bdf8' : '#64748b'}
-                  stroke={isSelected ? '#fff' : 'transparent'}
-                  strokeWidth={isSelected ? 2 : 0}
-                >
-                  <title>{s.name}</title>
-                </circle>
-                <text
-                  x={cx}
-                  y={cy - 11}
-                  textAnchor="middle"
-                  fontSize="9.5"
-                  fill={isSelected ? '#38bdf8' : '#94a3b8'}
-                  fontWeight={isSelected ? 'bold' : 'normal'}
-                  className="pointer-events-none select-none font-mono"
-                >
-                  {s.id}
-                </text>
-              </g>
-            );
-          })}
-
-          {/* Compass Rose */}
-          <text x={mapWidth / 2} y={12} textAnchor="middle" fontSize="10" fill="#ef4444" fontWeight="bold" className="select-none">N</text>
-          <text x={mapWidth / 2} y={mapHeight - 2} textAnchor="middle" fontSize="9" fill="#64748b" className="select-none">S</text>
-          <text x={6} y={mapHeight / 2 + 4} textAnchor="start" fontSize="9" fill="#64748b" className="select-none">O</text>
-          <text x={mapWidth - 6} y={mapHeight / 2 + 4} textAnchor="end" fontSize="9" fill="#64748b" className="select-none">E</text>
-        </svg>
+            {/* Compass Rose */}
+            <text x={mapWidth / 2} y={14} textAnchor="middle" fontSize="11" fill="#ef4444" fontWeight="bold" className="select-none">N</text>
+            <text x={mapWidth / 2} y={mapHeight - 4} textAnchor="middle" fontSize="10" fill="#64748b" className="select-none">S</text>
+            <text x={8} y={mapHeight / 2 + 4} textAnchor="start" fontSize="10" fill="#64748b" className="select-none">O</text>
+            <text x={mapWidth - 8} y={mapHeight / 2 + 4} textAnchor="end" fontSize="10" fill="#64748b" className="select-none">E</text>
+          </svg>
+        </div>
       </div>
     );
   }
@@ -554,9 +559,9 @@ function Minimap({
   if (!cuveMinimapData) return null;
   const { points, minX, maxX, minY, maxY } = cuveMinimapData;
 
-  const mapWidth = 360;
-  const mapHeight = 280;
-  const padding = 38;
+  const mapWidth = 460;
+  const mapHeight = 350;
+  const padding = 48;
 
   const globalCenterX = (minX + maxX) / 2;
   const globalCenterY = (minY + maxY) / 2;
@@ -579,7 +584,7 @@ function Minimap({
     ? getMapCoords(activeCuvePoint.mapX, activeCuvePoint.mapY)
     : { cx: mapWidth / 2, cy: mapHeight / 2 };
 
-  const coneLength = 38;
+  const coneLength = 46;
   const coneSpread = Math.PI / 5;
   const mapAngle = -cameraAzimuth - Math.PI / 2;
   const coneLeft = {
@@ -591,24 +596,18 @@ function Minimap({
     y: currentCoords.cy + Math.sin(mapAngle + coneSpread) * coneLength,
   };
 
-  const prevCuve = currentCuveIndex > 0 ? cuveZones[currentCuveIndex - 1] : null;
-  const nextCuve =
-    currentCuveIndex >= 0 && currentCuveIndex < cuveZones.length - 1
-      ? cuveZones[currentCuveIndex + 1]
-      : null;
-
   return (
-    <div className="bg-slate-950/90 backdrop-blur-xl p-3.5 rounded-2xl border border-slate-800 shadow-2xl relative w-[310px]">
+    <div className="bg-slate-950/90 backdrop-blur-xl p-4.5 rounded-3xl border border-slate-800 shadow-2xl relative w-[500px]">
       {/* Cuve Header */}
-      <div className="mb-2.5 pb-2 border-b border-slate-800/80 flex items-center justify-between select-none">
-        <span className="flex items-center gap-1.5 text-xs font-bold text-amber-400">
-          <span className="w-2 h-2 rounded-full bg-amber-400"></span>
+      <div className="mb-3 pb-2.5 border-b border-slate-800/80 flex items-center justify-between select-none">
+        <span className="flex items-center gap-2 text-sm font-bold text-amber-400">
+          <span className="w-2.5 h-2.5 rounded-full bg-amber-400 animate-pulse"></span>
           Niveau -1 ({activeZone.name})
         </span>
 
         <button
           onClick={onMoveUp}
-          className="px-2.5 py-1 bg-sky-500 hover:bg-sky-400 text-white text-[10px] font-bold rounded-lg transition shadow-md cursor-pointer flex items-center gap-1"
+          className="px-3.5 py-1.5 bg-sky-500 hover:bg-sky-400 text-white text-xs font-bold rounded-xl transition shadow-md cursor-pointer flex items-center gap-1.5"
           title="Remonter au niveau 0 (Extérieur)"
         >
           <span>⬆️ Extérieur</span>
@@ -616,7 +615,7 @@ function Minimap({
       </div>
 
       {/* SVG Canvas - 1 point per Cuve */}
-      <div className="relative overflow-hidden rounded-xl bg-slate-900/90 border border-slate-800/90">
+      <div className="relative overflow-hidden rounded-2xl bg-slate-900/90 border border-slate-800/90">
         <svg width={mapWidth} height={mapHeight} className="overflow-visible">
           {/* View Cone */}
           {activeCuvePoint && (
@@ -644,32 +643,32 @@ function Minimap({
                 onMouseLeave={() => setHoveredCuve(null)}
                 className="cursor-pointer group"
               >
-                <circle cx={cx} cy={cy} r="14" fill="transparent" />
+                <circle cx={cx} cy={cy} r="18" fill="transparent" />
                 {isSelected && (
                   <circle
                     cx={cx}
                     cy={cy}
-                    r="9.5"
+                    r="12"
                     fill="none"
                     stroke="#38bdf8"
-                    strokeWidth="1.5"
-                    strokeOpacity="0.85"
+                    strokeWidth="2"
+                    strokeOpacity="0.9"
                   />
                 )}
                 <circle
                   cx={cx}
                   cy={cy}
-                  r={isSelected ? 6.5 : isHovered ? 6 : 5}
+                  r={isSelected ? 8.5 : isHovered ? 8 : 7}
                   fill={isSelected ? '#38bdf8' : isHovered ? '#fbbf24' : '#f59e0b'}
                   stroke={isSelected || isHovered ? '#ffffff' : 'transparent'}
-                  strokeWidth={isSelected || isHovered ? 1.5 : 0}
+                  strokeWidth={isSelected || isHovered ? 2 : 0}
                   className="transition-all duration-150"
                 />
                 <text
                   x={cx}
-                  y={cy - 9}
+                  y={cy - 12}
                   textAnchor="middle"
-                  fontSize="8"
+                  fontSize="10"
                   fill={isSelected ? '#38bdf8' : isHovered ? '#fbbf24' : '#fcd34d'}
                   fontWeight={isSelected || isHovered ? 'bold' : 'normal'}
                   className="pointer-events-none select-none font-mono"
@@ -681,12 +680,62 @@ function Minimap({
           })}
 
           {/* Compass labels */}
-          <text x={mapWidth / 2} y={10} textAnchor="middle" fontSize="9" fill="#ef4444" fontWeight="bold" className="select-none">N</text>
-          <text x={mapWidth / 2} y={mapHeight - 4} textAnchor="middle" fontSize="8" fill="#64748b" className="select-none">S</text>
-          <text x={6} y={mapHeight / 2 + 3} textAnchor="start" fontSize="8" fill="#64748b" className="select-none">O</text>
-          <text x={mapWidth - 6} y={mapHeight / 2 + 3} textAnchor="end" fontSize="8" fill="#64748b" className="select-none">E</text>
+          <text x={mapWidth / 2} y={14} textAnchor="middle" fontSize="11" fill="#ef4444" fontWeight="bold" className="select-none">N</text>
+          <text x={mapWidth / 2} y={mapHeight - 4} textAnchor="middle" fontSize="10" fill="#64748b" className="select-none">S</text>
+          <text x={8} y={mapHeight / 2 + 4} textAnchor="start" fontSize="10" fill="#64748b" className="select-none">O</text>
+          <text x={mapWidth - 8} y={mapHeight / 2 + 4} textAnchor="end" fontSize="10" fill="#64748b" className="select-none">E</text>
         </svg>
       </div>
+
+      {/* Left / Right Position Navigation Controls when Cuve has > 1 point */}
+      {activeZone.stations.length > 1 && (
+        <div className="mt-3 pt-2.5 border-t border-slate-800/80 flex items-center justify-between gap-3 text-xs font-mono select-none">
+          <button
+            onClick={() => {
+              const currentIdx = activeZone.stations.findIndex((s) => s.id === currentId);
+              if (currentIdx > 0) {
+                onSelectStation(activeZone.stations[currentIdx - 1].id, activeZone.id);
+              }
+            }}
+            disabled={activeZone.stations.findIndex((s) => s.id === currentId) <= 0}
+            className={`px-4 py-2 rounded-xl font-bold transition flex items-center gap-1.5 ${
+              activeZone.stations.findIndex((s) => s.id === currentId) > 0
+                ? 'bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 shadow-md cursor-pointer'
+                : 'bg-slate-900 text-slate-600 border border-slate-800/50 cursor-not-allowed opacity-40'
+            }`}
+          >
+            <span>◄</span>
+            <span>Précédent</span>
+          </button>
+
+          <div className="flex flex-col items-center">
+            <span className="text-xs font-bold text-slate-200">
+              Point {activeZone.stations.findIndex((s) => s.id === currentId) + 1} / {activeZone.stations.length}
+            </span>
+            <span className="text-[10px] text-slate-400 font-sans">
+              Station {currentId}
+            </span>
+          </div>
+
+          <button
+            onClick={() => {
+              const currentIdx = activeZone.stations.findIndex((s) => s.id === currentId);
+              if (currentIdx < activeZone.stations.length - 1) {
+                onSelectStation(activeZone.stations[currentIdx + 1].id, activeZone.id);
+              }
+            }}
+            disabled={activeZone.stations.findIndex((s) => s.id === currentId) >= activeZone.stations.length - 1}
+            className={`px-4 py-2 rounded-xl font-bold transition flex items-center gap-1.5 ${
+              activeZone.stations.findIndex((s) => s.id === currentId) < activeZone.stations.length - 1
+                ? 'bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 shadow-md cursor-pointer'
+                : 'bg-slate-900 text-slate-600 border border-slate-800/50 cursor-not-allowed opacity-40'
+            }`}
+          >
+            <span>Suivant</span>
+            <span>►</span>
+          </button>
+        </div>
+      )}
     </div>
   );
 }
@@ -1037,30 +1086,6 @@ export default function Viewer3D({
               url={currentStation.panoramaUrl}
               yaw={(currentStation.yaw || 0) + globalYawOffset}
             />
-
-            {/* 3D Green Navigation Hotspots projected directly in the 360 photo (only inside Cuves) */}
-            {!isAtTop &&
-              connectedStations.map((targetSt) => (
-                <NavigationHotspot3D
-                  key={`hotspot-${targetSt.id}`}
-                  currentPos={currentStation.position}
-                  targetStation={targetSt}
-                  yawOffset={(currentStation.yaw || 0) + globalYawOffset}
-                  onClick={() => navigateToStation(targetSt.id)}
-                />
-              ))}
-
-            {/* 3D Amber Cuve Entrance Markers in Exterior view (displayed when near a Cuve) */}
-            {isAtTop &&
-              cuveZones.map((cz) => (
-                <CuveMarker3D
-                  key={`cuve-marker-${cz.id}`}
-                  currentPos={currentStation.position}
-                  cuveZone={cz}
-                  yawOffset={(currentStation.yaw || 0) + globalYawOffset}
-                  onClick={() => navigateToStation(1, cz.id)}
-                />
-              ))}
           </React.Suspense>
         )}
       </Canvas>
