@@ -61,7 +61,7 @@ export default async function Home() {
   const zones = await loadZones();
 
   return (
-    <main className="w-full h-screen">
+    <main className="w-full h-screen h-[100dvh] overflow-hidden">
       <Viewer3D zones={zones} />
     </main>
   );

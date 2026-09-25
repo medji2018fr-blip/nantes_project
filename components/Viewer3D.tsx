@@ -194,6 +194,7 @@ function PanoramaSphere({
 }
 
 // Green 3D Navigation Hotspot projected directly in the 360 photo
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 function NavigationHotspot3D({
   currentPos,
   targetStation,
@@ -303,6 +304,7 @@ function NavigationHotspot3D({
 }
 
 // Gold/Amber 3D Cuve Entrance Marker (displayed when near Cuves in Exterior view)
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 function CuveMarker3D({
   currentPos,
   cuveZone,
@@ -315,6 +317,13 @@ function CuveMarker3D({
   onClick: () => void;
 }) {
   const [hovered, setHovered] = useState(false);
+  const groupRef = useRef<THREE.Group>(null);
+
+  useFrame(({ camera }) => {
+    if (groupRef.current) {
+      groupRef.current.quaternion.copy(camera.quaternion);
+    }
+  });
 
   const anchorX = cuveZone.exteriorCoords?.x ?? 0;
   const anchorY = cuveZone.exteriorCoords?.y ?? 0;
@@ -334,14 +343,6 @@ function CuveMarker3D({
   const r = 13;
   const posVec = new THREE.Vector3(dirX * r, dirY * r, dirZ * r);
   posVec.applyAxisAngle(new THREE.Vector3(0, 1, 0), yawOffset);
-
-  const groupRef = useRef<THREE.Group>(null);
-
-  useFrame(({ camera }) => {
-    if (groupRef.current) {
-      groupRef.current.quaternion.copy(camera.quaternion);
-    }
-  });
 
   return (
     <group position={[posVec.x, posVec.y, posVec.z]}>
@@ -423,6 +424,7 @@ function Minimap({
   onSelectStation,
   onMoveUp,
   cameraAzimuth,
+  onClose,
 }: {
   zones: ZoneData[];
   activeZoneId: string;
@@ -430,6 +432,7 @@ function Minimap({
   onSelectStation: (id: number, zoneId?: string) => void;
   onMoveUp: () => void;
   cameraAzimuth: number;
+  onClose?: () => void;
 }) {
   const isAtTop = activeZoneId === 'PanoramasExterieur';
 
@@ -440,8 +443,6 @@ function Minimap({
   const cuveZones = useMemo(() => {
     return zones.filter((z) => z.id.startsWith('Cuve_'));
   }, [zones]);
-
-  const currentCuveIndex = cuveZones.findIndex((z) => z.id === activeZoneId);
 
   // ----------------------------------------------------
   // MODE 1: EXTÉRIEUR MINIMAP (Matching User Screenshot)
@@ -545,27 +546,39 @@ function Minimap({
     };
 
     return (
-      <div className="bg-slate-950/90 backdrop-blur-xl p-4.5 rounded-3xl border border-slate-800 shadow-2xl w-[500px]">
-        <div className="text-[13px] font-bold tracking-wider text-slate-300 uppercase mb-3 flex justify-between items-center select-none">
-          <span className="flex items-center gap-2">
-            <span className="w-2.5 h-2.5 rounded-full bg-emerald-400"></span>
-            PLAN DES STATIONS 2D
+      <div className="bg-slate-950/90 backdrop-blur-xl p-3 sm:p-4.5 rounded-2xl sm:rounded-3xl border border-slate-800 shadow-2xl w-full">
+        <div className="text-xs sm:text-[13px] font-bold tracking-wider text-slate-300 uppercase mb-2 sm:mb-3 flex justify-between items-center select-none gap-2">
+          <span className="flex items-center gap-1.5 sm:gap-2 truncate">
+            <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 shrink-0"></span>
+            <span className="truncate">PLAN DES STATIONS 2D</span>
           </span>
-          <button
-            onClick={() => {
-              const cuveZones = zones.filter((z) => z.id.startsWith('Cuve_'));
-              if (cuveZones.length > 0) {
-                onSelectStation(1, cuveZones[0].id);
-              }
-            }}
-            className="px-3.5 py-1.5 bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs font-bold rounded-xl transition shadow-md cursor-pointer flex items-center gap-1.5"
-            title="Descendre aux Cuves (Niveau -1)"
-          >
-            <span>⬇️ Entrer aux Cuves</span>
-          </button>
+          <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+            <button
+              onClick={() => {
+                const cuveZones = zones.filter((z) => z.id.startsWith('Cuve_'));
+                if (cuveZones.length > 0) {
+                  onSelectStation(1, cuveZones[0].id);
+                }
+              }}
+              className="px-2.5 sm:px-3.5 py-1.5 bg-amber-500 hover:bg-amber-400 text-slate-950 text-[11px] sm:text-xs font-bold rounded-xl transition shadow-md cursor-pointer flex items-center gap-1"
+              title="Descendre aux Cuves (Niveau -1)"
+            >
+              <span>⬇️</span>
+              <span>Entrer aux Cuves</span>
+            </button>
+            {onClose && (
+              <button
+                onClick={onClose}
+                className="w-7 h-7 rounded-xl bg-slate-800/80 hover:bg-slate-700 text-slate-400 hover:text-white flex items-center justify-center transition cursor-pointer text-xs font-bold"
+                title="Masquer la carte"
+              >
+                ✕
+              </button>
+            )}
+          </div>
         </div>
-        <div className="relative overflow-hidden rounded-2xl bg-slate-900/90 border border-slate-800/90">
-          <svg width={mapWidth} height={mapHeight} className="overflow-visible">
+        <div className="relative overflow-hidden rounded-xl sm:rounded-2xl bg-slate-900/90 border border-slate-800/90">
+          <svg viewBox={`0 0 ${mapWidth} ${mapHeight}`} className="w-full h-auto max-h-[38vh] sm:max-h-[44vh] block">
             {/* View Cone */}
             {currentStation && (
               <polygon
@@ -727,26 +740,38 @@ function Minimap({
   };
 
   return (
-    <div className="bg-slate-950/90 backdrop-blur-xl p-4.5 rounded-3xl border border-slate-800 shadow-2xl relative w-[500px]">
+    <div className="bg-slate-950/90 backdrop-blur-xl p-3 sm:p-4.5 rounded-2xl sm:rounded-3xl border border-slate-800 shadow-2xl relative w-full">
       {/* Cuve Header */}
-      <div className="mb-3 pb-2.5 border-b border-slate-800/80 flex items-center justify-between select-none">
-        <span className="flex items-center gap-2 text-sm font-bold text-amber-400">
-          <span className="w-2.5 h-2.5 rounded-full bg-amber-400 animate-pulse"></span>
-          Niveau -1 ({activeZone.name})
+      <div className="mb-2 sm:mb-3 pb-2 sm:pb-2.5 border-b border-slate-800/80 flex items-center justify-between select-none gap-2">
+        <span className="flex items-center gap-1.5 sm:gap-2 text-xs sm:text-sm font-bold text-amber-400 truncate">
+          <span className="w-2.5 h-2.5 rounded-full bg-amber-400 animate-pulse shrink-0"></span>
+          <span className="truncate">Niveau -1 ({activeZone.name})</span>
         </span>
 
-        <button
-          onClick={onMoveUp}
-          className="px-3.5 py-1.5 bg-sky-500 hover:bg-sky-400 text-white text-xs font-bold rounded-xl transition shadow-md cursor-pointer flex items-center gap-1.5"
-          title="Remonter au niveau 0 (Extérieur)"
-        >
-          <span>⬆️ Extérieur</span>
-        </button>
+        <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+          <button
+            onClick={onMoveUp}
+            className="px-2.5 sm:px-3.5 py-1.5 bg-sky-500 hover:bg-sky-400 text-white text-[11px] sm:text-xs font-bold rounded-xl transition shadow-md cursor-pointer flex items-center gap-1"
+            title="Remonter au niveau 0 (Extérieur)"
+          >
+            <span>⬆️</span>
+            <span>Extérieur</span>
+          </button>
+          {onClose && (
+            <button
+              onClick={onClose}
+              className="w-7 h-7 rounded-xl bg-slate-800/80 hover:bg-slate-700 text-slate-400 hover:text-white flex items-center justify-center transition cursor-pointer text-xs font-bold"
+              title="Masquer la carte"
+            >
+              ✕
+            </button>
+          )}
+        </div>
       </div>
 
       {/* SVG Canvas - 1 point per Cuve with centered badge numbers */}
-      <div className="relative overflow-hidden rounded-2xl bg-slate-900/90 border border-slate-800/90">
-        <svg width={mapWidth} height={mapHeight} className="overflow-visible">
+      <div className="relative overflow-hidden rounded-xl sm:rounded-2xl bg-slate-900/90 border border-slate-800/90">
+        <svg viewBox={`0 0 ${mapWidth} ${mapHeight}`} className="w-full h-auto max-h-[38vh] sm:max-h-[44vh] block">
           {/* View Cone */}
           {activeCuvePoint && (
             <polygon
@@ -827,7 +852,7 @@ function Minimap({
       </div>
 
       {/* Left / Right Position Navigation Controls for Cuves (Always rendered to maintain constant card size) */}
-      <div className="mt-3 pt-2.5 border-t border-slate-800/80 flex items-center justify-between gap-3 text-xs font-mono select-none">
+      <div className="mt-2 sm:mt-3 pt-2 sm:pt-2.5 border-t border-slate-800/80 flex items-center justify-between gap-2 sm:gap-3 text-xs font-mono select-none">
         <button
           onClick={() => {
             const currentIdx = activeZone.stations.findIndex((s) => s.id === currentId);
@@ -836,7 +861,7 @@ function Minimap({
             }
           }}
           disabled={activeZone.stations.findIndex((s) => s.id === currentId) <= 0}
-          className={`px-4 py-2 rounded-xl font-bold transition flex items-center gap-1.5 ${
+          className={`px-3 sm:px-4 py-1.5 sm:py-2 rounded-xl font-bold transition flex items-center gap-1.5 text-[11px] sm:text-xs ${
             activeZone.stations.findIndex((s) => s.id === currentId) > 0
               ? 'bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 shadow-md cursor-pointer'
               : 'bg-slate-900 text-slate-600 border border-slate-800/50 cursor-not-allowed opacity-40'
@@ -846,12 +871,12 @@ function Minimap({
           <span>Précédent</span>
         </button>
 
-        <div className="flex flex-col items-center">
-          <span className="text-xs font-bold text-amber-300 font-mono">
+        <div className="flex flex-col items-center min-w-0">
+          <span className="text-[11px] sm:text-xs font-bold text-amber-300 font-mono truncate">
             Point {activeZone.stations.find((s) => s.id === currentId)?.name || `${activeZone.name.replace('Cuve ', '')}.${currentId}`}
           </span>
-          <span className="text-[10px] text-slate-400 font-sans">
-            ({Math.max(1, activeZone.stations.findIndex((s) => s.id === currentId) + 1)} sur {activeZone.stations.length || 1})
+          <span className="text-[9px] sm:text-[10px] text-slate-400 font-sans">
+            ({Math.max(1, activeZone.stations.findIndex((s) => s.id === currentId) + 1)} / {activeZone.stations.length || 1})
           </span>
         </div>
 
@@ -863,7 +888,7 @@ function Minimap({
             }
           }}
           disabled={activeZone.stations.findIndex((s) => s.id === currentId) >= activeZone.stations.length - 1}
-          className={`px-4 py-2 rounded-xl font-bold transition flex items-center gap-1.5 ${
+          className={`px-3 sm:px-4 py-1.5 sm:py-2 rounded-xl font-bold transition flex items-center gap-1.5 text-[11px] sm:text-xs ${
             activeZone.stations.findIndex((s) => s.id === currentId) < activeZone.stations.length - 1
               ? 'bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 shadow-md cursor-pointer'
               : 'bg-slate-900 text-slate-600 border border-slate-800/50 cursor-not-allowed opacity-40'
@@ -882,8 +907,8 @@ function CompassWidget({ azimuth }: { azimuth: number }) {
   const rotation = -azimuth * (180 / Math.PI);
 
   return (
-    <div className="bg-slate-900/85 backdrop-blur-md rounded-full w-14 h-14 border border-slate-700 shadow-2xl flex items-center justify-center relative">
-      <svg width="44" height="44" viewBox="-22 -22 44 44" style={{ transform: `rotate(${rotation}deg)`, transition: 'transform 0.1s ease-out' }}>
+    <div className="bg-slate-900/85 backdrop-blur-md rounded-full w-12 h-12 sm:w-14 sm:h-14 border border-slate-700 shadow-2xl flex items-center justify-center relative select-none">
+      <svg className="w-8 h-8 sm:w-11 sm:h-11" viewBox="-22 -22 44 44" style={{ transform: `rotate(${rotation}deg)`, transition: 'transform 0.1s ease-out' }}>
         <polygon points="0,-17 -3.5,-3 3.5,-3" fill="#ef4444" />
         <polygon points="0,17 -3.5,3 3.5,3" fill="#94a3b8" />
         <circle cx="0" cy="0" r="2.5" fill="#1e293b" stroke="#64748b" strokeWidth="1" />
@@ -938,29 +963,29 @@ function StationInspectorModal({
   }, [allStationsList, selectedFilterLevel, search]);
 
   return (
-    <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-4">
-      <div className="bg-slate-900 border border-slate-800 rounded-3xl w-full max-w-4xl max-h-[85vh] flex flex-col shadow-2xl overflow-hidden">
+    <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-3 sm:p-4">
+      <div className="bg-slate-900 border border-slate-800 rounded-2xl sm:rounded-3xl w-full max-w-4xl max-h-[85vh] flex flex-col shadow-2xl overflow-hidden">
         {/* Modal Header */}
-        <div className="p-5 border-b border-slate-800 flex justify-between items-center bg-slate-950/50">
+        <div className="p-4 sm:p-5 border-b border-slate-800 flex justify-between items-center bg-slate-950/50">
           <div>
-            <h2 className="text-lg font-bold text-white flex items-center gap-2">
-              <span className="w-3 h-3 rounded-full bg-sky-400"></span>
+            <h2 className="text-base sm:text-lg font-bold text-white flex items-center gap-2">
+              <span className="w-2.5 h-2.5 sm:w-3 sm:h-3 rounded-full bg-sky-400"></span>
               Coordonnées des Stations ({allStationsList.length} Points)
             </h2>
-            <p className="text-xs text-slate-400 mt-0.5">
+            <p className="text-[11px] sm:text-xs text-slate-400 mt-0.5">
               Extrait des fichiers .inf • Navigation Niveau 0 (Extérieur) et Niveau -1 (Cuve)
             </p>
           </div>
           <button
             onClick={onClose}
-            className="w-8 h-8 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-300 flex items-center justify-center transition cursor-pointer text-sm font-bold"
+            className="w-8 h-8 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-300 flex items-center justify-center transition cursor-pointer text-sm font-bold shrink-0 ml-2"
           >
             ✕
           </button>
         </div>
 
         {/* Search Bar & Filter */}
-        <div className="p-4 bg-slate-900/60 border-b border-slate-800/80 flex flex-col sm:flex-row gap-3 justify-between items-center">
+        <div className="p-3 sm:p-4 bg-slate-900/60 border-b border-slate-800/80 flex flex-col sm:flex-row gap-3 justify-between items-center">
           <div className="flex items-center gap-2 w-full sm:w-auto">
             <input
               type="text"
@@ -979,15 +1004,15 @@ function StationInspectorModal({
               <option value="CUVE">Niveau -1 (Cuves)</option>
             </select>
           </div>
-          <div className="text-xs text-slate-400 flex items-center gap-4">
+          <div className="text-xs text-slate-400 flex items-center justify-between sm:justify-start gap-4 w-full sm:w-auto">
             <span>Affichés: <strong className="text-sky-400 font-mono">{filteredStations.length}</strong> / {allStationsList.length}</span>
-            <span className="text-slate-600">|</span>
-            <span className="text-emerald-400 font-mono font-semibold">100% Coordonnées Valides</span>
+            <span className="text-slate-600 hidden sm:inline">|</span>
+            <span className="text-emerald-400 font-mono font-semibold text-[11px] sm:text-xs">100% Coordonnées Valides</span>
           </div>
         </div>
 
         {/* Data Table */}
-        <div className="flex-1 overflow-y-auto p-4">
+        <div className="flex-1 overflow-y-auto overflow-x-auto p-3 sm:p-4">
           <table className="w-full text-left text-xs font-mono">
             <thead>
               <tr className="border-b border-slate-800 text-slate-400 uppercase text-[10px] tracking-wider">
@@ -1078,8 +1103,8 @@ function InteractiveTourGuide({ onClose }: { onClose: () => void }) {
       badge: 'Étape 1 / 4',
       icon: '🌐',
       description:
-        'Faites glisser votre souris directement dans l’image pour explorer le site à 360° dans toutes les directions.',
-      pointerPosition: 'top-24 left-1/2 -translate-x-1/2',
+        'Faites glisser votre doigt ou votre souris directement dans l’image pour explorer le site à 360° dans toutes les directions.',
+      pointerPosition: 'top-20 sm:top-24 left-3 right-3 sm:left-1/2 sm:-translate-x-1/2 sm:right-auto',
     },
     {
       title: 'Carte 2D Minimap & Navigation',
@@ -1087,7 +1112,7 @@ function InteractiveTourGuide({ onClose }: { onClose: () => void }) {
       icon: '🗺️',
       description:
         'Cette carte affiche la position des stations du site. Le cône bleu s’oriente avec votre regard. Cliquez sur un point numéroté pour vous y téléporter.',
-      pointerPosition: 'bottom-[480px] right-6 md:right-10',
+      pointerPosition: 'top-16 left-3 right-3 sm:top-auto sm:left-auto sm:bottom-[460px] sm:right-6 md:right-10',
     },
     {
       title: 'Accéder aux Cuves (Niveau -1)',
@@ -1095,7 +1120,7 @@ function InteractiveTourGuide({ onClose }: { onClose: () => void }) {
       icon: '⬇️',
       description:
         'Cliquez sur le bouton "Entrer aux Cuves" (ou sur l’une des cuves C1 à C6) pour descendre visiter l’intérieur des cuves au Niveau -1.',
-      pointerPosition: 'bottom-[480px] right-6 md:right-10',
+      pointerPosition: 'top-16 left-3 right-3 sm:top-auto sm:left-auto sm:bottom-[460px] sm:right-6 md:right-10',
     },
     {
       title: 'Navigation Point par Point dans la Cuve',
@@ -1103,7 +1128,7 @@ function InteractiveTourGuide({ onClose }: { onClose: () => void }) {
       icon: '↔️',
       description:
         'Dans une cuve, utilisez les boutons ◄ Précédent et Suivant ► au bas de la carte 2D pour parcourir les différentes stations. Cliquez sur ⬆️ Extérieur pour remonter.',
-      pointerPosition: 'bottom-[480px] right-6 md:right-10',
+      pointerPosition: 'top-16 left-3 right-3 sm:top-auto sm:left-auto sm:bottom-[460px] sm:right-6 md:right-10',
     },
   ];
 
@@ -1129,23 +1154,23 @@ function InteractiveTourGuide({ onClose }: { onClose: () => void }) {
       {/* Step 1 Central Pointer Cue */}
       {stepIndex === 0 && (
         <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-30 pointer-events-none flex flex-col items-center gap-3 animate-pulse">
-          <div className="w-20 h-20 rounded-full border-2 border-amber-400/80 bg-amber-500/10 flex items-center justify-center shadow-2xl">
-            <span className="text-3xl">🖱️</span>
+          <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-full border-2 border-amber-400/80 bg-amber-500/10 flex items-center justify-center shadow-2xl">
+            <span className="text-2xl sm:text-3xl">🖱️</span>
           </div>
           <span className="text-xs font-mono font-bold text-amber-300 bg-slate-950/90 px-3 py-1.5 rounded-full border border-amber-500/50 shadow-xl">
-            Glissez la souris à 360°
+            Glissez à 360°
           </span>
         </div>
       )}
 
       {/* Steps 2, 3, 4 Pointer Ring around 2D Minimap */}
       {stepIndex >= 1 && (
-        <div className="absolute bottom-6 right-6 w-[500px] h-[450px] rounded-3xl ring-4 ring-amber-400 ring-offset-4 ring-offset-slate-950 z-30 pointer-events-none animate-pulse" />
+        <div className="hidden sm:block absolute bottom-6 right-6 w-[480px] md:w-[500px] h-[450px] rounded-3xl ring-4 ring-amber-400 ring-offset-4 ring-offset-slate-950 z-30 pointer-events-none animate-pulse" />
       )}
 
       {/* On-Interface Callout Tooltip Card */}
       <div
-        className={`absolute z-40 w-full max-w-sm ${currentStep.pointerPosition} transition-all duration-300 animate-fadeIn`}
+        className={`absolute z-40 w-auto max-w-sm ${currentStep.pointerPosition} transition-all duration-300 animate-fadeIn`}
       >
         <div className="bg-slate-950/95 backdrop-blur-2xl border-2 border-amber-500/80 rounded-3xl shadow-2xl p-5 relative text-white">
           {/* Header */}
@@ -1262,7 +1287,8 @@ export default function Viewer3D({
   useEffect(() => {
     const tourCompleted = localStorage.getItem('jet_clickone_tour_completed');
     if (!tourCompleted) {
-      setShowTour(true);
+      const timer = setTimeout(() => setShowTour(true), 200);
+      return () => clearTimeout(timer);
     }
   }, []);
 
@@ -1270,17 +1296,12 @@ export default function Viewer3D({
     zones[0]?.id || 'PanoramasExterieur'
   );
 
-  const cuveZones = useMemo(
-    () => zones.filter((z) => z.id.startsWith('Cuve_')),
-    [zones]
-  );
   const [currentId, setCurrentId] = useState(1);
   const [showMinimap, setShowMinimap] = useState(true);
   const [showInspector, setShowInspector] = useState(false);
   const [fadeIn, setFadeIn] = useState(false);
-  const [isNavigating, setIsNavigating] = useState(false);
   const [cameraAzimuth, setCameraAzimuth] = useState(0);
-  const [globalYawOffset, setGlobalYawOffset] = useState<number>(0);
+  const [globalYawOffset] = useState<number>(0);
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const controlsRef = useRef<any>(null);
@@ -1316,7 +1337,6 @@ export default function Viewer3D({
     const zoneToUse = targetZoneId || activeZoneId;
     if (targetId === currentId && zoneToUse === activeZoneId) return;
 
-    setIsNavigating(true);
     setFadeIn(true);
 
     setTimeout(() => {
@@ -1327,33 +1347,8 @@ export default function Viewer3D({
 
       setTimeout(() => {
         setFadeIn(false);
-        setIsNavigating(false);
       }, 120);
     }, 250);
-  };
-
-  // Find nearest Cuve when moving DOWN from top level (Niveau 0 -> Niveau -1)
-  const handleMoveDown = () => {
-    if (!currentStation) return;
-    const cuveZones = zones.filter((z) => z.id.startsWith('Cuve_'));
-    if (cuveZones.length === 0) return;
-
-    let bestCuve = cuveZones[0];
-    let minDistance = Infinity;
-
-    cuveZones.forEach((cz) => {
-      if (cz.exteriorCoords) {
-        const dx = cz.exteriorCoords.x - currentStation.position.x;
-        const dy = cz.exteriorCoords.y - currentStation.position.y;
-        const dist = Math.sqrt(dx * dx + dy * dy);
-        if (dist < minDistance) {
-          minDistance = dist;
-          bestCuve = cz;
-        }
-      }
-    });
-
-    navigateToStation(1, bestCuve.id);
   };
 
   // Move UP from Cuve (Niveau -1 -> Niveau 0)
@@ -1361,21 +1356,10 @@ export default function Viewer3D({
     navigateToStation(1, 'PanoramasExterieur');
   };
 
-  const handlePrev = () => {
-    const prevIndex = activeZone.stations.findIndex((s) => s.id === currentId) - 1;
-    if (prevIndex >= 0) navigateToStation(activeZone.stations[prevIndex].id);
-  };
-
-  const handleNext = () => {
-    const nextIndex = activeZone.stations.findIndex((s) => s.id === currentId) + 1;
-    if (nextIndex < activeZone.stations.length)
-      navigateToStation(activeZone.stations[nextIndex].id);
-  };
-
   const isAtTop = activeZoneId === 'PanoramasExterieur';
 
   return (
-    <div className="w-full h-screen relative bg-slate-950 select-none overflow-hidden font-sans">
+    <div className="w-full h-screen h-[100dvh] relative bg-slate-950 select-none overflow-hidden font-sans">
       {/* Global Preloader Screen */}
       {isPreloading && (
         <GlobalAppPreloader
@@ -1412,42 +1396,46 @@ export default function Viewer3D({
       </Canvas>
 
       {/* Top Bar Info */}
-      <div className="absolute top-4 left-4 right-4 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 pointer-events-none z-10">
-        <div className="bg-slate-900/85 backdrop-blur-md px-4 py-2.5 rounded-2xl border border-slate-800 text-white flex items-center gap-3 shadow-xl pointer-events-auto">
-          <div className={`w-3 h-3 rounded-full ${isAtTop ? 'bg-emerald-400' : 'bg-amber-400'}`} />
-          <div>
-            <h1 className="font-bold text-sm tracking-wide flex items-center gap-2">
-              <span>{isAtTop ? 'Niveau 0 (Extérieur)' : `Niveau -1 (${activeZone.name})`}</span>
-              <span className="text-slate-400 font-normal">•</span>
-              <span>{currentStation?.name}</span>
+      <div className="absolute top-3 left-3 right-3 sm:top-4 sm:left-4 sm:right-4 pt-[env(safe-area-inset-top,0px)] flex justify-between items-center gap-2 pointer-events-none z-20">
+        <div className="bg-slate-900/85 backdrop-blur-md px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl sm:rounded-2xl border border-slate-800 text-white flex items-center gap-2 sm:gap-3 shadow-xl pointer-events-auto min-w-0 max-w-[62vw] sm:max-w-none">
+          <div className={`w-2.5 h-2.5 sm:w-3 sm:h-3 rounded-full shrink-0 ${isAtTop ? 'bg-emerald-400' : 'bg-amber-400'}`} />
+          <div className="min-w-0 truncate">
+            <h1 className="font-bold text-xs sm:text-sm tracking-wide flex items-center gap-1.5 sm:gap-2 truncate">
+              <span className="truncate">{isAtTop ? 'Niveau 0' : activeZone.name}</span>
+              <span className="text-slate-500 font-normal hidden sm:inline">•</span>
+              <span className="truncate text-slate-300 font-medium hidden sm:inline">{currentStation?.name}</span>
             </h1>
-            <p className="text-[11px] text-slate-400">
+            <p className="text-[10px] sm:text-[11px] text-slate-400 font-mono truncate">
               Station {currentStation?.id} / {activeZone.stations.length}
             </p>
           </div>
         </div>
 
-        <div className="flex items-center gap-2 pointer-events-auto">
+        <div className="flex items-center gap-1.5 sm:gap-2 pointer-events-auto shrink-0">
           <button
             onClick={() => setShowTour(true)}
-            className="bg-slate-900/85 backdrop-blur-md px-3.5 py-2 rounded-2xl border border-slate-800 text-amber-400 hover:text-white hover:bg-slate-800 text-xs font-semibold transition shadow-xl cursor-pointer flex items-center gap-1.5"
+            className="bg-slate-900/85 backdrop-blur-md px-2.5 sm:px-3.5 py-1.5 sm:py-2 rounded-xl sm:rounded-2xl border border-slate-800 text-amber-400 hover:text-white hover:bg-slate-800 text-[11px] sm:text-xs font-semibold transition shadow-xl cursor-pointer flex items-center gap-1.5"
             title="Ouvrir le guide d'utilisation"
           >
-            <span>❓ Guide</span>
+            <span>❓</span>
+            <span>Guide</span>
           </button>
 
           <button
             onClick={() => setShowMinimap(!showMinimap)}
-            className="bg-slate-900/85 backdrop-blur-md px-3.5 py-2 rounded-2xl border border-slate-800 text-slate-200 hover:text-white hover:bg-slate-800 text-xs font-semibold transition shadow-xl cursor-pointer"
+            className={`bg-slate-900/85 backdrop-blur-md px-2.5 sm:px-3.5 py-1.5 sm:py-2 rounded-xl sm:rounded-2xl border border-slate-800 text-[11px] sm:text-xs font-semibold transition shadow-xl cursor-pointer flex items-center gap-1.5 ${
+              showMinimap ? 'text-sky-400 border-sky-500/50' : 'text-slate-200 hover:text-white hover:bg-slate-800'
+            }`}
           >
-            {showMinimap ? 'Masquer carte' : 'Carte 2D'}
+            <span>🗺️</span>
+            <span>{showMinimap ? 'Masquer' : 'Carte 2D'}</span>
           </button>
         </div>
       </div>
 
-      {/* 2D Minimap Floating Card (Bottom-Right, Enlarged) */}
+      {/* 2D Minimap Floating Card */}
       {showMinimap && (
-        <div className="absolute bottom-6 right-6 z-10 hidden md:block">
+        <div className="absolute bottom-[calc(1rem+env(safe-area-inset-bottom,0px))] left-3 right-3 sm:left-auto sm:right-6 md:bottom-6 md:right-6 z-30 max-w-[calc(100vw-1.5rem)] sm:max-w-[480px] md:max-w-[500px] w-auto sm:w-[480px] md:w-[500px] transition-all duration-300 pointer-events-auto">
           <Minimap
             zones={zones}
             activeZoneId={activeZoneId}
@@ -1455,12 +1443,20 @@ export default function Viewer3D({
             onSelectStation={(id, zoneId) => navigateToStation(id, zoneId)}
             onMoveUp={handleMoveUp}
             cameraAzimuth={cameraAzimuth}
+            onClose={() => setShowMinimap(false)}
           />
         </div>
       )}
 
-      {/* Compass Widget (bottom-left) */}
-      <div className="absolute bottom-6 left-6 z-10">
+      {/* Compass Widget (boussole) */}
+      {/* Positioned on top of mobile browser navbar and safe area */}
+      <div
+        className={`absolute z-30 pointer-events-auto transition-all duration-300 ${
+          showMinimap
+            ? 'bottom-[calc(1rem+env(safe-area-inset-bottom,0px))] left-3 sm:left-6 md:bottom-6 max-sm:bottom-[calc(min(45vh,350px)+2.25rem+env(safe-area-inset-bottom,0px))]'
+            : 'bottom-[calc(1rem+env(safe-area-inset-bottom,0px))] left-3 sm:left-6 md:bottom-6'
+        }`}
+      >
         <CompassWidget azimuth={cameraAzimuth} />
       </div>
 
